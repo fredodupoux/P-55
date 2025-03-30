@@ -823,6 +823,9 @@ class Database {
             return;
           }
           
+          // Store old master key before generating new one
+          const oldMasterKey = this.masterKey;
+          
           // Generate new master key and salt
           const newMasterKey = crypto
             .createHash('sha256')
@@ -839,7 +842,7 @@ class Database {
           this.db.run(
             'UPDATE master_verification SET verification_hash = ?, salt = ? WHERE id = 1',
             [verificationHash, salt],
-            async (err) => {
+            (err) => {
               if (err) {
                 console.error('Error updating verification record:', err);
                 reject(err);
@@ -847,20 +850,96 @@ class Database {
               }
               
               try {
-                // Need to update password encryption for all accounts
-                const oldMasterKey = this.masterKey;
-                this.masterKey = newMasterKey;
+                console.log('Getting accounts with old master key');
                 
-                // Get all accounts
-                const accounts = await this.getAccounts();
+                // Get accounts with the old master key first
+                const getAccounts = new Promise((resolveAccounts, rejectAccounts) => {
+                  this.db.all('SELECT * FROM accounts ORDER BY name', (err, rows) => {
+                    if (err) {
+                      console.error('Error getting accounts for re-encryption:', err.message);
+                      rejectAccounts(err);
+                      return;
+                    }
+                    
+                    if (!rows || rows.length === 0) {
+                      // No accounts to update
+                      resolveAccounts([]);
+                      return;
+                    }
+                    
+                    try {
+                      // Decrypt sensitive data with old key
+                      const accounts = rows.map(row => ({
+                        id: row.id,
+                        name: row.name,
+                        username: row.username,
+                        password: this.decrypt(row.password), // Use current (old) master key
+                        website: row.website || '',
+                        notes: row.notes || '',
+                      }));
+                      
+                      resolveAccounts(accounts);
+                    } catch (error) {
+                      console.error('Error processing accounts:', error);
+                      rejectAccounts(error);
+                    }
+                  });
+                });
                 
-                // Re-encrypt all account passwords
-                for (const account of accounts) {
-                  await this.updateAccount(account);
-                }
-                
-                console.log('Password reset successful');
-                resolve(true);
+                // Now handle the accounts update after getting them
+                getAccounts.then(accounts => {
+                  // Switch to the new master key
+                  this.masterKey = newMasterKey;
+                  
+                  // Function to update each account with new encryption
+                  const updateAccount = (account, index) => {
+                    return new Promise((resolveUpdate, rejectUpdate) => {
+                      // Encrypt with new master key
+                      const encryptedPassword = this.encrypt(account.password);
+                      
+                      this.db.run(
+                        `UPDATE accounts 
+                         SET password = ?, updated_at = CURRENT_TIMESTAMP 
+                         WHERE id = ?`,
+                        [encryptedPassword, account.id],
+                        (err) => {
+                          if (err) {
+                            console.error(`Error updating account ${account.id} with new encryption:`, err);
+                            rejectUpdate(err);
+                          } else {
+                            console.log(`Re-encrypted account ${index + 1}/${accounts.length}`);
+                            resolveUpdate();
+                          }
+                        }
+                      );
+                    });
+                  };
+                  
+                  // Process accounts sequentially to avoid database locks
+                  const processAccounts = async () => {
+                    try {
+                      for (let i = 0; i < accounts.length; i++) {
+                        await updateAccount(accounts[i], i);
+                      }
+                      
+                      console.log('Password reset successful');
+                      this.createBackup();
+                      resolve(true);
+                    } catch (error) {
+                      // If there's an error during update, restore old master key
+                      this.masterKey = oldMasterKey;
+                      console.error('Error updating accounts with new encryption:', error);
+                      reject(error);
+                    }
+                  };
+                  
+                  // Start processing accounts
+                  processAccounts();
+                }).catch(error => {
+                  this.masterKey = oldMasterKey; // Restore old key on error
+                  console.error('Error getting accounts for password reset:', error);
+                  reject(error);
+                });
               } catch (error) {
                 // Restore old master key if something goes wrong
                 this.masterKey = oldMasterKey;

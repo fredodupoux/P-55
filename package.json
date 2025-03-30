@@ -25,7 +25,8 @@
     "react-dom": "^18.2.0",
     "react-scripts": "^5.0.1",
     "sqlite3": "^5.1.6",
-    "typescript": "^4.9.5"
+    "typescript": "^4.9.5",
+    "web-vitals": "^4.2.4"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^5.16.5",
@@ -61,15 +62,21 @@
       }
     ],
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "artifactName": "${productName}-setup-${version}.${ext}"
     },
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "artifactName": "${productName}-${version}.${ext}"
     },
     "linux": {
-      "target": ["AppImage"],
+      "target": [
+        "AppImage"
+      ],
       "artifactName": "${productName}-${version}.${ext}"
     },
     "nsis": {
