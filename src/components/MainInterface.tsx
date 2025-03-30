@@ -39,7 +39,6 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isAddingAccount, setIsAddingAccount] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [dbPath, setDbPath] = useState<string | null>(null);
   const [notification, setNotification] = useState<{
     open: boolean;
     message: string;
@@ -59,11 +58,6 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
         setIsLoading(true);
         const loadedAccounts = await AccountService.getAccounts();
         setAccounts(loadedAccounts);
-        
-        // Get database path for informational purposes
-        const path = await AccountService.getDatabasePath();
-        setDbPath(path);
-        
         setIsLoading(false);
       } catch (error) {
         console.error('Failed to load accounts:', error);
@@ -249,15 +243,6 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
           </Menu>
         </Toolbar>
       </AppBar>
-
-      {/* Add database path info */}
-      {dbPath && (
-        <Box sx={{ p: 1, bgcolor: 'background.paper', borderRadius: 1, my: 1 }}>
-          <Typography variant="caption" color="textSecondary">
-            Database location: {dbPath}
-          </Typography>
-        </Box>
-      )}
 
       <Grid container spacing={2} sx={{ mt: 2 }}>
         {/* Left Panel - Account List */}
