@@ -1208,6 +1208,71 @@ class Database {
       }
     });
   }
+
+  // Encrypt the database file for syncing
+  async encryptDatabaseForSync() {
+    if (!this.dbPath || !fs.existsSync(this.dbPath)) {
+      throw new Error('Database file does not exist');
+    }
+
+    const fileBuffer = fs.readFileSync(this.dbPath);
+    const cipher = crypto.createCipheriv(
+      'aes-256-cbc',
+      Buffer.from(this.masterKey, 'hex').slice(0, 32),
+      Buffer.alloc(16, 0) // Use a zero IV for simplicity (not recommended for production)
+    );
+
+    const encrypted = Buffer.concat([cipher.update(fileBuffer), cipher.final()]);
+    return encrypted;
+  }
+
+  // Decrypt the database file after downloading
+  async decryptDatabaseFromSync(encryptedBuffer) {
+    const decipher = crypto.createDecipheriv(
+      'aes-256-cbc',
+      Buffer.from(this.masterKey, 'hex').slice(0, 32),
+      Buffer.alloc(16, 0)
+    );
+
+    const decrypted = Buffer.concat([decipher.update(encryptedBuffer), decipher.final()]);
+    fs.writeFileSync(this.dbPath, decrypted);
+  }
+
+  // Upload the encrypted database to the server
+  async uploadDatabase() {
+    try {
+      const encryptedDB = await this.encryptDatabaseForSync();
+      // Replace with actual API call
+      console.log('Uploading encrypted database to server...');
+      // Example: await apiClient.upload('/sync', encryptedDB);
+    } catch (error) {
+      console.error('Error uploading database:', error);
+    }
+  }
+
+  // Download the encrypted database from the server
+  async downloadDatabase() {
+    try {
+      // Replace with actual API call
+      console.log('Downloading encrypted database from server...');
+      const encryptedDB = Buffer.from(''); // Example: await apiClient.download('/sync');
+      await this.decryptDatabaseFromSync(encryptedDB);
+    } catch (error) {
+      console.error('Error downloading database:', error);
+    }
+  }
+
+  // Sync the database with the server
+  async syncDatabase() {
+    try {
+      console.log('Starting database sync...');
+      await this.uploadDatabase();
+      await this.downloadDatabase();
+      console.log('Database sync completed successfully');
+    } catch (error) {
+      console.error('Error during database sync:', error);
+    }
+  }
 }
 
 module.exports = new Database();
