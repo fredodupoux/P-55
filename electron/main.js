@@ -150,7 +150,7 @@ function createWindow() {
         isDbInitialized = false;
         writeToLog('info', 'Application auto-locked due to inactivity');
       }
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 1 * 60 * 1000); // 1 minutes
   };
 
   // Reset timer on any user activity
