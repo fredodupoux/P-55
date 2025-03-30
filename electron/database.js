@@ -1175,18 +1175,13 @@ class Database {
               return;
             }
             
-            // When using TOTP, we generate a stable key from the verification hash
-            // which will be consistent across sessions
-            const stableKey = crypto
-              .createHash('sha256')
-              .update(row.verification_hash)
-              .digest('hex');
-              
-            this.masterKey = stableKey;
+            
+            // When using TOTP, the masterKey should have already been set
+            // by a successful password verification step prior to TOTP check.
+            // We just confirm TOTP validity here.
             
             // Authentication successful
             resolve({ success: true, method: 'totp' });
-          } else {
             // Important: Don't change the masterKey when TOTP fails
             console.log('TOTP verification failed');
             resolve({ success: false, method: 'totp', error: 'Invalid TOTP code' });
