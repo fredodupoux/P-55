@@ -19,9 +19,14 @@ import AccountService from '../services/AccountService';
 interface LoginScreenProps {
   onLogin: (password: string) => void;
   isLoading?: boolean;
+  onForgotPassword: () => void;
 }
 
-const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isLoading = false }) => {
+const LoginScreen: React.FC<LoginScreenProps> = ({ 
+  onLogin, 
+  isLoading = false,
+  onForgotPassword
+}) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(false);
@@ -135,14 +140,22 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isLoading = false })
             {loading ? <CircularProgress size={24} color="inherit" /> : 'Log In'}
           </Button>
           
-          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between' }}>
+            <Button
+              onClick={onForgotPassword}
+              size="small"
+              color="primary"
+            >
+              Forgot Password?
+            </Button>
+            
             <Button
               startIcon={<Help />}
               onClick={handleShowHelp}
               size="small"
               color="info"
             >
-              Having trouble? Get help
+              Help
             </Button>
           </Box>
         </form>
@@ -169,8 +182,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isLoading = false })
             </li>
             <li>
               <Typography paragraph>
-                If you've forgotten your password, there's no recovery method to protect your security.
-                You may need to delete the database file and start fresh.
+                If you've forgotten your password, use the "Forgot Password?" option to 
+                reset your master password by answering your security questions.
               </Typography>
             </li>
             <li>
@@ -207,15 +220,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, isLoading = false })
               )}
             </li>
           </ol>
-          
-          <Typography variant="subtitle1" sx={{ mt: 3 }}>
-            For new users:
-          </Typography>
-          <Typography>
-            If this is your first time using Pass+55, simply enter a secure master password 
-            to create your database. This password will be used to encrypt all your stored data,
-            so make sure it's something you'll remember but is difficult for others to guess.
-          </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowHelp(false)}>Close</Button>

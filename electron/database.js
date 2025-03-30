@@ -553,6 +553,329 @@ class Database {
       }
     });
   }
+
+  // Extended setup method to include security questions
+  setup(password, securityQuestions) {
+    return new Promise((resolve, reject) => {
+      try {
+        console.log('Setting up new database...');
+        
+        // Check if we were called with a valid password
+        if (!password || typeof password !== 'string' || password.length < 1) {
+          console.error('Invalid master password provided for setup');
+          reject(new Error('Invalid master password provided'));
+          return;
+        }
+        
+        // Validate security questions
+        if (!securityQuestions || !Array.isArray(securityQuestions) || securityQuestions.length === 0) {
+          console.error('Invalid security questions provided for setup');
+          reject(new Error('Invalid security questions provided'));
+          return;
+        }
+        
+        // Use master password to derive a key
+        this.masterKey = crypto
+          .createHash('sha256')
+          .update(password)
+          .digest('hex');
+        
+        // Check if the database file already exists - it shouldn't if this is setup
+        const dbExists = fs.existsSync(this.dbPath);
+        if (dbExists) {
+          console.warn('Database file already exists during setup');
+          // We'll proceed anyway, but log a warning
+        }
+        
+        // Open database with better error handling
+        this.db = new sqlite3.Database(this.dbPath, (err) => {
+          if (err) {
+            console.error('Error opening database:', err.message);
+            reject(err);
+            return;
+          }
+          console.log('Connected to the SQLite database for setup');
+          
+          // Proceed with initialization...
+          this._setupDatabase(password, securityQuestions, resolve, reject);
+        });
+      } catch (error) {
+        console.error('Error during database setup:', error);
+        reject(error);
+      }
+    });
+  }
+
+  // Setup database tables with security questions
+  _setupDatabase(password, securityQuestions, resolve, reject) {
+    this.db.serialize(() => {
+      // First create a master password verification table
+      this.db.run(`
+        CREATE TABLE IF NOT EXISTS master_verification (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          verification_hash TEXT NOT NULL,
+          salt TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `, (err) => {
+        if (err) {
+          console.error('Error creating verification table:', err.message);
+          reject(err);
+          return;
+        }
+        
+        // Create security questions table
+        this.db.run(`
+          CREATE TABLE IF NOT EXISTS security_questions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            question_id INTEGER NOT NULL,
+            answer_hash TEXT NOT NULL,
+            salt TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `, (err) => {
+          if (err) {
+            console.error('Error creating security questions table:', err.message);
+            reject(err);
+            return;
+          }
+          
+          // Generate a verification hash using a separate salt
+          const salt = crypto.randomBytes(16).toString('hex');
+          const verificationHash = crypto
+            .createHash('sha256')
+            .update(password + salt)
+            .digest('hex');
+          
+          // Store verification hash
+          this.db.run(
+            'INSERT OR REPLACE INTO master_verification (id, verification_hash, salt) VALUES (1, ?, ?)',
+            [verificationHash, salt],
+            (err) => {
+              if (err) {
+                console.error('Error storing verification hash:', err.message);
+                reject(err);
+                return;
+              }
+              console.log('Stored master password verification');
+              
+              // Clear any existing security questions
+              this.db.run('DELETE FROM security_questions', (err) => {
+                if (err) {
+                  console.error('Error clearing security questions:', err.message);
+                  reject(err);
+                  return;
+                }
+                
+                // Store security questions
+                const insertSecurity = this.db.prepare(
+                  'INSERT INTO security_questions (question_id, answer_hash, salt) VALUES (?, ?, ?)'
+                );
+                
+                try {
+                  securityQuestions.forEach(question => {
+                    const questionSalt = crypto.randomBytes(16).toString('hex');
+                    const answerHash = crypto
+                      .createHash('sha256')
+                      .update(question.answer + questionSalt)
+                      .digest('hex');
+                    
+                    insertSecurity.run(question.questionId, answerHash, questionSalt);
+                  });
+                  
+                  insertSecurity.finalize((err) => {
+                    if (err) {
+                      console.error('Error finalizing security questions insertion:', err.message);
+                      reject(err);
+                      return;
+                    }
+                    
+                    // Create accounts table
+                    this._createAccountsTable(resolve, reject);
+                  });
+                } catch (error) {
+                  console.error('Error inserting security questions:', error);
+                  reject(error);
+                }
+              });
+            }
+          );
+        });
+      });
+    });
+  }
+
+  // Get the IDs of stored security questions
+  getSecurityQuestionIds() {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        reject(new Error('Database not initialized'));
+        return;
+      }
+      
+      this.db.all('SELECT question_id FROM security_questions ORDER BY id', (err, rows) => {
+        if (err) {
+          console.error('Error getting security question IDs:', err.message);
+          reject(err);
+          return;
+        }
+        
+        if (!rows || rows.length === 0) {
+          console.warn('No security questions found');
+          resolve([]);
+          return;
+        }
+        
+        const questionIds = rows.map(row => row.question_id);
+        console.log(`Found ${questionIds.length} security questions`);
+        resolve(questionIds);
+      });
+    });
+  }
+
+  // Verify security question answers
+  verifySecurityAnswers(questionAnswers) {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        reject(new Error('Database not initialized'));
+        return;
+      }
+      
+      if (!questionAnswers || !Array.isArray(questionAnswers) || questionAnswers.length === 0) {
+        console.error('Invalid question answers format');
+        resolve(false);
+        return;
+      }
+      
+      // Get all stored security questions
+      this.db.all('SELECT question_id, answer_hash, salt FROM security_questions', (err, rows) => {
+        if (err) {
+          console.error('Error getting security questions:', err.message);
+          reject(err);
+          return;
+        }
+        
+        if (!rows || rows.length === 0) {
+          console.warn('No security questions found for verification');
+          resolve(false);
+          return;
+        }
+        
+        try {
+          // Convert rows to a map for easier lookup
+          const storedQuestions = new Map();
+          rows.forEach(row => {
+            storedQuestions.set(row.question_id, {
+              answerHash: row.answer_hash,
+              salt: row.salt
+            });
+          });
+          
+          // Verify each provided answer
+          let allCorrect = true;
+          
+          for (const qa of questionAnswers) {
+            const stored = storedQuestions.get(qa.questionId);
+            
+            if (!stored) {
+              console.warn(`Question ID ${qa.questionId} not found in database`);
+              allCorrect = false;
+              break;
+            }
+            
+            // Hash the provided answer with the stored salt
+            const testHash = crypto
+              .createHash('sha256')
+              .update(qa.answer + stored.salt)
+              .digest('hex');
+            
+            // Compare with stored hash
+            if (testHash !== stored.answerHash) {
+              console.warn(`Answer incorrect for question ID ${qa.questionId}`);
+              allCorrect = false;
+              break;
+            }
+          }
+          
+          resolve(allCorrect);
+        } catch (error) {
+          console.error('Error verifying security answers:', error);
+          reject(error);
+        }
+      });
+    });
+  }
+
+  // Reset password using security question answers
+  resetPasswordWithSecurityAnswers(newPassword, questionAnswers) {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        reject(new Error('Database not initialized'));
+        return;
+      }
+      
+      // First verify the security answers
+      this.verifySecurityAnswers(questionAnswers)
+        .then(isValid => {
+          if (!isValid) {
+            console.error('Security answers verification failed');
+            resolve(false);
+            return;
+          }
+          
+          // Generate new master key and salt
+          const newMasterKey = crypto
+            .createHash('sha256')
+            .update(newPassword)
+            .digest('hex');
+          
+          const salt = crypto.randomBytes(16).toString('hex');
+          const verificationHash = crypto
+            .createHash('sha256')
+            .update(newPassword + salt)
+            .digest('hex');
+          
+          // Update the verification record
+          this.db.run(
+            'UPDATE master_verification SET verification_hash = ?, salt = ? WHERE id = 1',
+            [verificationHash, salt],
+            async (err) => {
+              if (err) {
+                console.error('Error updating verification record:', err);
+                reject(err);
+                return;
+              }
+              
+              try {
+                // Need to update password encryption for all accounts
+                const oldMasterKey = this.masterKey;
+                this.masterKey = newMasterKey;
+                
+                // Get all accounts
+                const accounts = await this.getAccounts();
+                
+                // Re-encrypt all account passwords
+                for (const account of accounts) {
+                  await this.updateAccount(account);
+                }
+                
+                console.log('Password reset successful');
+                resolve(true);
+              } catch (error) {
+                // Restore old master key if something goes wrong
+                this.masterKey = oldMasterKey;
+                console.error('Error re-encrypting accounts after password reset:', error);
+                reject(error);
+              }
+            }
+          );
+        })
+        .catch(error => {
+          console.error('Error during security answers verification:', error);
+          reject(error);
+        });
+    });
+  }
 }
 
 module.exports = new Database();

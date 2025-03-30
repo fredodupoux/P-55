@@ -1,7 +1,26 @@
 import { Account } from '../types/Account';
 import '../types/ElectronAPI'; // Import for type augmentation
+import { SecurityQuestionAnswer } from '../types/SecurityQuestion';
 
 export class AccountService {
+  // Check if the database exists
+  static async databaseExists(): Promise<boolean> {
+    if (!window.api) {
+      console.error('Electron API not available - cannot check database existence');
+      return false;
+    }
+
+    try {
+      console.log('Checking if database exists...');
+      const result = await window.api.invoke('database-exists', null);
+      console.log('Database existence check result:', result);
+      return result.exists;
+    } catch (error) {
+      console.error('Failed to check database existence:', error);
+      return false;
+    }
+  }
+
   // Initialize the database with the master password
   static async initialize(password: string): Promise<boolean> {
     if (!window.api) {
@@ -16,6 +35,95 @@ export class AccountService {
       return result.success;
     } catch (error) {
       console.error('Failed to initialize database:', error);
+      return false;
+    }
+  }
+
+  // Set up a new database with password and security questions
+  static async setupDatabase(
+    password: string, 
+    securityQuestions: SecurityQuestionAnswer[]
+  ): Promise<boolean> {
+    if (!window.api) {
+      console.error('Electron API not available - cannot set up database');
+      return false;
+    }
+
+    try {
+      console.log('Setting up new database...');
+      const result = await window.api.invoke('setup-database', {
+        password,
+        securityQuestions
+      });
+      console.log('Database setup result:', result);
+      return result.success;
+    } catch (error) {
+      console.error('Failed to set up database:', error);
+      return false;
+    }
+  }
+
+  // Get security questions for password recovery
+  static async getSecurityQuestions(): Promise<number[] | null> {
+    if (!window.api) {
+      console.error('Electron API not available - cannot get security questions');
+      return null;
+    }
+
+    try {
+      console.log('Getting security questions...');
+      const result = await window.api.invoke('get-security-questions', null);
+      console.log('Get security questions result:', result);
+      if (result.success) {
+        return result.questionIds;
+      }
+      return null;
+    } catch (error) {
+      console.error('Failed to get security questions:', error);
+      return null;
+    }
+  }
+
+  // Verify security question answers for password recovery
+  static async verifySecurityAnswers(
+    questionAnswers: SecurityQuestionAnswer[]
+  ): Promise<boolean> {
+    if (!window.api) {
+      console.error('Electron API not available - cannot verify security answers');
+      return false;
+    }
+
+    try {
+      console.log('Verifying security answers...');
+      const result = await window.api.invoke('verify-security-answers', questionAnswers);
+      console.log('Verify security answers result:', result);
+      return result.success;
+    } catch (error) {
+      console.error('Failed to verify security answers:', error);
+      return false;
+    }
+  }
+
+  // Reset password using security questions
+  static async resetPasswordWithSecurityAnswers(
+    newPassword: string,
+    questionAnswers: SecurityQuestionAnswer[]
+  ): Promise<boolean> {
+    if (!window.api) {
+      console.error('Electron API not available - cannot reset password');
+      return false;
+    }
+
+    try {
+      console.log('Resetting password with security answers...');
+      const result = await window.api.invoke('reset-password', {
+        newPassword,
+        questionAnswers
+      });
+      console.log('Reset password result:', result);
+      return result.success;
+    } catch (error) {
+      console.error('Failed to reset password:', error);
       return false;
     }
   }
