@@ -23,7 +23,12 @@ contextBridge.exposeInMainWorld(
         'get-database-path',
         'change-master-password',
         'get-logs',
-        'show-database-folder'
+        'show-database-folder',
+        'database-exists',
+        'setup-database',
+        'get-security-questions',
+        'verify-security-answers',
+        'reset-password'
       ];
       if (validChannels.includes(channel)) {
         ipcRenderer.send(channel, data);
@@ -41,7 +46,12 @@ contextBridge.exposeInMainWorld(
         'get-database-path',
         'change-master-password',
         'get-logs',
-        'show-database-folder'
+        'show-database-folder',
+        'database-exists',
+        'setup-database',
+        'get-security-questions',
+        'verify-security-answers',
+        'reset-password'
       ];
       if (validChannels.includes(channel)) {
         return ipcRenderer.invoke(channel, data);

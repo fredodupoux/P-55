@@ -413,3 +413,109 @@ ipcMain.handle('change-master-password', async (event, { currentPassword, newPas
     return { success: false, error: error.message };
   }
 });
+
+// Add new IPC handlers for security questions and database existence
+ipcMain.handle('database-exists', async () => {
+  try {
+    // Check if the database file exists
+    const dbPath = database.dbPath;
+    const exists = fs.existsSync(dbPath);
+    
+    writeToLog('info', `Database existence check: ${exists ? 'exists' : 'does not exist'} at ${dbPath}`);
+    return { success: true, exists };
+  } catch (error) {
+    writeToLog('error', 'Failed to check database existence', error);
+    return { success: false, error: error.message, exists: false };
+  }
+});
+
+ipcMain.handle('setup-database', async (event, { password, securityQuestions }) => {
+  try {
+    writeToLog('info', 'Setting up new database with password and security questions');
+    
+    if (!password || typeof password !== 'string' || password.length < 1) {
+      const error = 'Invalid password provided';
+      writeToLog('error', error);
+      return { success: false, error };
+    }
+    
+    if (!securityQuestions || !Array.isArray(securityQuestions) || securityQuestions.length === 0) {
+      const error = 'Invalid security questions provided';
+      writeToLog('error', error);
+      return { success: false, error };
+    }
+    
+    const result = await database.setup(password, securityQuestions);
+    isDbInitialized = true;
+    writeToLog('info', 'Database setup successful');
+    return { success: true };
+  } catch (error) {
+    writeToLog('error', 'Failed to set up database', error);
+    return { 
+      success: false, 
+      error: error.message,
+      details: error.stack
+    };
+  }
+});
+
+ipcMain.handle('get-security-questions', async () => {
+  try {
+    if (!isDbInitialized) {
+      console.error('Cannot get security questions: Database not initialized');
+      return { success: false, error: 'Database not initialized' };
+    }
+    
+    console.log('Getting security questions...');
+    const questionIds = await database.getSecurityQuestionIds();
+    return { success: true, questionIds };
+  } catch (error) {
+    console.error('Failed to get security questions:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('verify-security-answers', async (event, questionAnswers) => {
+  try {
+    if (!isDbInitialized) {
+      console.error('Cannot verify security answers: Database not initialized');
+      return { success: false, error: 'Database not initialized' };
+    }
+    
+    console.log('Verifying security question answers...');
+    const isValid = await database.verifySecurityAnswers(questionAnswers);
+    return { success: isValid };
+  } catch (error) {
+    console.error('Failed to verify security answers:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('reset-password', async (event, { newPassword, questionAnswers }) => {
+  try {
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 1) {
+      console.error('Invalid new password provided');
+      return { success: false, error: 'Invalid new password provided' };
+    }
+    
+    if (!questionAnswers || !Array.isArray(questionAnswers) || questionAnswers.length === 0) {
+      console.error('Invalid security answers provided');
+      return { success: false, error: 'Invalid security answers provided' };
+    }
+    
+    console.log('Resetting password with security answers...');
+    const result = await database.resetPasswordWithSecurityAnswers(newPassword, questionAnswers);
+    
+    if (result) {
+      // Successfully reset password
+      console.log('Password reset successful');
+      return { success: true };
+    } else {
+      console.error('Failed to reset password: Security answers may be incorrect');
+      return { success: false, error: 'Failed to reset password' };
+    }
+  } catch (error) {
+    console.error('Failed to reset password:', error);
+    return { success: false, error: error.message };
+  }
+});
