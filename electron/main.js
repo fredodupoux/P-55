@@ -111,6 +111,12 @@ writeToLog('info', `Application started - Version: ${app.getVersion()}`);
 writeToLog('info', `User data path: ${userDataPath}`);
 writeToLog('info', `Log file: ${logFile}`);
 
+// Add a variable to track the last error
+let lastError = {
+  message: '',
+  isInvalidPassword: false
+};
+
 function createWindow() {
   // Create the browser window with senior-friendly dimensions
   mainWindow = new BrowserWindow({
@@ -150,7 +156,7 @@ function createWindow() {
         isDbInitialized = false;
         writeToLog('info', 'Application auto-locked due to inactivity');
       }
-    }, 1 * 60 * 1000); // 1 minutes
+    }, 5 * 60 * 1000); // 5 minutes
   };
 
   // Reset timer on any user activity
@@ -225,20 +231,30 @@ ipcMain.handle('initialize-db', async (event, password) => {
     if (!password || typeof password !== 'string' || password.length < 1) {
       const error = 'Invalid password provided';
       writeToLog('error', error);
+      lastError = { message: error, isInvalidPassword: true };
       return { success: false, error };
     }
     
     const result = await database.initialize(password);
     isDbInitialized = true;
     writeToLog('info', 'Database initialization successful');
+    // Clear last error on success
+    lastError = { message: '', isInvalidPassword: false };
     return { success: true };
   } catch (error) {
     writeToLog('error', 'Failed to initialize database', error);
+    // Track if this is an invalid password error
+    const isInvalidPassword = error.message && error.message.includes('Invalid master password');
+    lastError = { 
+      message: error.message, 
+      isInvalidPassword: isInvalidPassword 
+    };
     // Return a more detailed error message to help debugging
     return { 
       success: false, 
       error: error.message,
-      details: error.stack
+      details: error.stack,
+      isInvalidPassword: isInvalidPassword
     };
   }
 });
@@ -432,6 +448,7 @@ ipcMain.handle('database-exists', async () => {
 ipcMain.handle('setup-database', async (event, { password, securityQuestions }) => {
   try {
     writeToLog('info', 'Setting up new database with password and security questions');
+    writeToLog('info', `Security questions received: ${JSON.stringify(securityQuestions)}`);
     
     if (!password || typeof password !== 'string' || password.length < 1) {
       const error = 'Invalid password provided';
@@ -439,10 +456,29 @@ ipcMain.handle('setup-database', async (event, { password, securityQuestions }) 
       return { success: false, error };
     }
     
-    if (!securityQuestions || !Array.isArray(securityQuestions) || securityQuestions.length === 0) {
-      const error = 'Invalid security questions provided';
+    if (!securityQuestions || !Array.isArray(securityQuestions)) {
+      const error = 'Security questions must be an array';
       writeToLog('error', error);
       return { success: false, error };
+    }
+    
+    if (securityQuestions.length === 0) {
+      const error = 'At least one security question is required';
+      writeToLog('error', error);
+      return { success: false, error };
+    }
+    
+    // Validate each security question
+    for (const question of securityQuestions) {
+      if (!question.questionId || question.questionId === 0) {
+        writeToLog('error', `Invalid question ID: ${question.questionId}`);
+        return { success: false, error: 'Invalid question ID provided' };
+      }
+      
+      if (!question.answer || typeof question.answer !== 'string' || question.answer.trim() === '') {
+        writeToLog('error', 'Empty answer provided for a security question');
+        return { success: false, error: 'All security questions must have answers' };
+      }
     }
     
     const result = await database.setup(password, securityQuestions);
@@ -518,4 +554,9 @@ ipcMain.handle('reset-password', async (event, { newPassword, questionAnswers })
     console.error('Failed to reset password:', error);
     return { success: false, error: error.message };
   }
+});
+
+// Add an IPC handler to get the last error
+ipcMain.handle('get-last-error', () => {
+  return lastError;
 });

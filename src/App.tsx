@@ -6,6 +6,7 @@ import DatabaseSetupScreen from './components/DatabaseSetupScreen';
 import LoginScreen from './components/LoginScreen';
 import MainInterface from './components/MainInterface';
 import PasswordRecoveryDialog from './components/PasswordRecoveryDialog';
+import { ThemeProvider as CustomThemeProvider } from './context/ThemeContext';
 import AccountService from './services/AccountService';
 import './types/ElectronAPI'; // Import for type augmentation
 import { SecurityQuestion } from './types/SecurityQuestion';
@@ -24,7 +25,8 @@ const securityQuestions: SecurityQuestion[] = [
   { id: 10, question: "What is the name of your favorite movie?" }
 ];
 
-function App() {
+// Wrap the main app content with theme providers
+const AppContent = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [databaseExists, setDatabaseExists] = useState<boolean | null>(null);
@@ -107,12 +109,27 @@ function App() {
           });
         }
       } else {
+        // Check specifically for invalid password instead of generic initialization error
+        // This provides a better user experience with more specific error messages
         console.error('Failed to initialize database');
-        setNotification({
-          open: true,
-          message: 'Failed to initialize database. Please check the application logs.',
-          severity: 'error'
-        });
+        
+        // The initialization may have failed due to an invalid password
+        // Let's check if we can detect this specific case
+        const lastAttemptWasInvalidPassword = await AccountService.wasLastErrorInvalidPassword();
+        
+        if (lastAttemptWasInvalidPassword) {
+          setNotification({
+            open: true,
+            message: 'Invalid master password',
+            severity: 'error'
+          });
+        } else {
+          setNotification({
+            open: true,
+            message: 'Failed to initialize database. Please check the application logs.',
+            severity: 'error'
+          });
+        }
       }
     } catch (error) {
       console.error('Login error:', error);
@@ -175,7 +192,7 @@ function App() {
 
   if (isLoading && databaseExists === null) {
     return (
-      <Container maxWidth="lg">
+      <Container maxWidth="lg" className="app-container">
         <Box sx={{ my: 4, textAlign: 'center' }}>
           Loading...
         </Box>
@@ -184,7 +201,7 @@ function App() {
   }
 
   return (
-    <Container maxWidth="lg">
+    <Container maxWidth="lg" className="app-container">
       <Box sx={{ my: 4 }}>
         {isAuthenticated ? (
           <MainInterface onLogout={handleLogout} />
@@ -223,6 +240,14 @@ function App() {
         />
       </Box>
     </Container>
+  );
+};
+
+function App() {
+  return (
+    <CustomThemeProvider>
+      <AppContent />
+    </CustomThemeProvider>
   );
 }
 

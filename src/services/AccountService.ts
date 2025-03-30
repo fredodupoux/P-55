@@ -51,10 +51,27 @@ export class AccountService {
 
     try {
       console.log('Setting up new database...');
+      console.log('Security questions to be sent:', JSON.stringify(securityQuestions));
+      
+      // Validate security questions before sending
+      if (!securityQuestions || !Array.isArray(securityQuestions) || securityQuestions.length === 0) {
+        console.error('Invalid security questions format');
+        return false;
+      }
+      
+      // Ensure each question has an ID and answer
+      for (const q of securityQuestions) {
+        if (!q.questionId || typeof q.answer !== 'string' || q.answer.trim() === '') {
+          console.error('Invalid question or answer:', q);
+          return false;
+        }
+      }
+      
       const result = await window.api.invoke('setup-database', {
         password,
         securityQuestions
       });
+      
       console.log('Database setup result:', result);
       return result.success;
     } catch (error) {
@@ -317,6 +334,22 @@ export class AccountService {
       return result.success;
     } catch (error) {
       console.error('Error showing database folder:', error);
+      return false;
+    }
+  }
+
+  // Add a method to check if the last error was due to an invalid password
+  static async wasLastErrorInvalidPassword(): Promise<boolean> {
+    if (!window.api) {
+      console.error('Electron API not available - cannot check last error');
+      return false;
+    }
+
+    try {
+      const result = await window.api.invoke('get-last-error', null);
+      return result.isInvalidPassword || false;
+    } catch (error) {
+      console.error('Failed to check last error:', error);
       return false;
     }
   }

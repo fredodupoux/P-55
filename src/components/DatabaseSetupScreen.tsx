@@ -118,6 +118,13 @@ const DatabaseSetupScreen: React.FC<DatabaseSetupScreenProps> = ({
       return;
     }
     
+    // Ensure we have at least one security question selected
+    const validQuestions = selectedQuestions.filter(q => q !== 0);
+    if (validQuestions.length === 0) {
+      setError("Please select at least one security question");
+      return;
+    }
+    
     if (!areAnswersProvided) {
       setError("Please provide answers for all selected questions");
       return;
@@ -133,6 +140,8 @@ const DatabaseSetupScreen: React.FC<DatabaseSetupScreenProps> = ({
           answer: answers[index].trim().toLowerCase() // Store lowercase for case-insensitive comparison
         }))
         .filter(item => item.questionId !== 0); // Filter out unselected questions
+      
+      console.log("Security data being sent:", securityData);
       
       // Create database with password and security questions
       const result = await AccountService.setupDatabase(password, securityData);

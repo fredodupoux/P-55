@@ -51,7 +51,8 @@ contextBridge.exposeInMainWorld(
         'setup-database',
         'get-security-questions',
         'verify-security-answers',
-        'reset-password'
+        'reset-password',
+        'get-last-error'
       ];
       if (validChannels.includes(channel)) {
         return ipcRenderer.invoke(channel, data);

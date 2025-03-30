@@ -28,6 +28,7 @@ import { Account } from '../types/Account';
 import AccountDetailPanel from './AccountDetailPanel';
 import AccountForm from './AccountForm';
 import PasswordChangeDialog from './PasswordChangeDialog';
+import ThemeToggle from './ThemeToggle';
 
 interface MainInterfaceProps {
   onLogout: () => void;
@@ -214,6 +215,7 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
           >
             Security
           </Button>
+          <ThemeToggle />
           <Button 
             color="inherit" 
             onClick={onLogout}
