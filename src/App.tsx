@@ -74,61 +74,71 @@ const AppContent = () => {
     }
   }, []);
 
-  const handleLogin = async (password: string) => {
+  const handleLogin = async (credential: string) => {
     try {
       setIsLoading(true);
       
-      if (!password || password.trim() === '') {
+      if (!credential || credential.trim() === '') {
         setNotification({
           open: true,
-          message: 'Password cannot be empty',
+          message: 'Credential cannot be empty',
           severity: 'error'
         });
         setIsLoading(false);
         return;
       }
       
-      // Initialize the database with the password
-      console.log('Initializing database...');
-      const initialized = await AccountService.initialize(password);
+      // First attempt to authenticate with the credential
+      console.log('Authenticating...');
+      const authResult = await AccountService.authenticate(credential);
       
-      if (initialized) {
-        console.log('Database initialized, verifying password...');
-        // Then verify the password
-        const isValid = await AccountService.verifyPassword(password);
-        
-        if (isValid) {
-          console.log('Password valid, logging in');
-          setIsAuthenticated(true);
-        } else {
-          console.log('Invalid password');
-          setNotification({
-            open: true,
-            message: 'Invalid master password',
-            severity: 'error'
-          });
-        }
+      if (authResult.success) {
+        console.log(`Authentication successful using ${authResult.method}`);
+        setIsAuthenticated(true);
       } else {
-        // Check specifically for invalid password instead of generic initialization error
-        // This provides a better user experience with more specific error messages
-        console.error('Failed to initialize database');
+        // If the new authentication method fails, try the legacy initialization method
+        // for backward compatibility
+        console.log('Authentication failed, trying legacy initialization...');
+        const initialized = await AccountService.initialize(credential);
         
-        // The initialization may have failed due to an invalid password
-        // Let's check if we can detect this specific case
-        const lastAttemptWasInvalidPassword = await AccountService.wasLastErrorInvalidPassword();
-        
-        if (lastAttemptWasInvalidPassword) {
-          setNotification({
-            open: true,
-            message: 'Invalid master password',
-            severity: 'error'
-          });
+        if (initialized) {
+          console.log('Database initialized, verifying password...');
+          // Then verify the password
+          const isValid = await AccountService.verifyPassword(credential);
+          
+          if (isValid) {
+            console.log('Password valid, logging in');
+            setIsAuthenticated(true);
+          } else {
+            console.log('Invalid password');
+            setNotification({
+              open: true,
+              message: 'Invalid master password',
+              severity: 'error'
+            });
+          }
         } else {
-          setNotification({
-            open: true,
-            message: 'Failed to initialize database. Please check the application logs.',
-            severity: 'error'
-          });
+          // Check specifically for invalid password instead of generic initialization error
+          // This provides a better user experience with more specific error messages
+          console.error('Failed to initialize database');
+          
+          // The initialization may have failed due to an invalid password
+          // Let's check if we can detect this specific case
+          const lastAttemptWasInvalidPassword = await AccountService.wasLastErrorInvalidPassword();
+          
+          if (lastAttemptWasInvalidPassword) {
+            setNotification({
+              open: true,
+              message: 'Invalid master password',
+              severity: 'error'
+            });
+          } else {
+            setNotification({
+              open: true,
+              message: 'Failed to initialize database. Please check the application logs.',
+              severity: 'error'
+            });
+          }
         }
       }
     } catch (error) {

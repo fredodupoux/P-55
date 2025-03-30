@@ -3,9 +3,17 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { app } = require('electron');
+// Add otplib for TOTP support
+const { authenticator } = require('otplib');
 
 // Determine if we're in development or production
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+
+// Configure TOTP
+authenticator.options = {
+  digits: 6,
+  window: 1, // Allow codes from 1 step before and after current time
+};
 
 class Database {
   constructor() {
@@ -140,54 +148,83 @@ class Database {
           return;
         }
         
-        // Check if a verification record exists
-        this.db.get('SELECT * FROM master_verification WHERE id = 1', (err, row) => {
+        // Create TOTP table for two-factor authentication
+        this.db.run(`
+          CREATE TABLE IF NOT EXISTS totp_settings (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            secret TEXT,
+            enabled INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `, (err) => {
           if (err) {
-            console.error('Error checking master verification:', err.message);
+            console.error('Error creating TOTP table:', err.message);
             reject(err);
             return;
           }
           
-          // Generate a verification hash using a separate salt
-          const salt = crypto.randomBytes(16).toString('hex');
-          const verificationHash = crypto
-            .createHash('sha256')
-            .update(masterPassword + salt)
-            .digest('hex');
-          
-          if (!row) {
-            console.log('First time setup - storing verification hash');
-            // First time setup - store verification hash
-            this.db.run(
-              'INSERT INTO master_verification (id, verification_hash, salt) VALUES (1, ?, ?)',
-              [verificationHash, salt],
-              (err) => {
-                if (err) {
-                  console.error('Error storing verification hash:', err.message);
-                  reject(err);
-                  return;
-                }
-                console.log('Stored master password verification');
-                this._createAccountsTable(resolve, reject);
-              }
-            );
-          } else {
-            // Verify the provided password matches the stored hash
-            const storedHash = row.verification_hash;
-            const storedSalt = row.salt;
-            const testHash = crypto
-              .createHash('sha256')
-              .update(masterPassword + storedSalt)
-              .digest('hex');
-            
-            if (testHash !== storedHash) {
-              console.error('Invalid master password');
-              reject(new Error('Invalid master password'));
+          // Check if a verification record exists
+          this.db.get('SELECT * FROM master_verification WHERE id = 1', (err, row) => {
+            if (err) {
+              console.error('Error checking master verification:', err.message);
+              reject(err);
               return;
             }
-            console.log('Master password verified');
-            this._createAccountsTable(resolve, reject);
-          }
+            
+            // Generate a verification hash using a separate salt
+            const salt = crypto.randomBytes(16).toString('hex');
+            const verificationHash = crypto
+              .createHash('sha256')
+              .update(masterPassword + salt)
+              .digest('hex');
+            
+            if (!row) {
+              console.log('First time setup - storing verification hash');
+              // First time setup - store verification hash
+              this.db.run(
+                'INSERT INTO master_verification (id, verification_hash, salt) VALUES (1, ?, ?)',
+                [verificationHash, salt],
+                (err) => {
+                  if (err) {
+                    console.error('Error storing verification hash:', err.message);
+                    reject(err);
+                    return;
+                  }
+                  console.log('Stored master password verification');
+                  
+                  // Initialize TOTP settings with disabled state
+                  this.db.run(
+                    'INSERT OR IGNORE INTO totp_settings (id, enabled) VALUES (1, 0)',
+                    [],
+                    (err) => {
+                      if (err) {
+                        console.error('Error initializing TOTP settings:', err.message);
+                        // Non-critical error, continue
+                      }
+                      this._createAccountsTable(resolve, reject);
+                    }
+                  );
+                }
+              );
+            } else {
+              // Verify the provided password matches the stored hash
+              const storedHash = row.verification_hash;
+              const storedSalt = row.salt;
+              const testHash = crypto
+                .createHash('sha256')
+                .update(masterPassword + storedSalt)
+                .digest('hex');
+              
+              if (testHash !== storedHash) {
+                console.error('Invalid master password');
+                reject(new Error('Invalid master password'));
+                return;
+              }
+              console.log('Master password verified');
+              this._createAccountsTable(resolve, reject);
+            }
+          });
         });
       });
     });
@@ -624,82 +661,99 @@ class Database {
           return;
         }
         
-        // Create security questions table
+        // Create TOTP table for two-factor authentication
         this.db.run(`
-          CREATE TABLE IF NOT EXISTS security_questions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            question_id INTEGER NOT NULL,
-            answer_hash TEXT NOT NULL,
-            salt TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          CREATE TABLE IF NOT EXISTS totp_settings (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            secret TEXT,
+            enabled INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
           )
         `, (err) => {
           if (err) {
-            console.error('Error creating security questions table:', err.message);
+            console.error('Error creating TOTP table:', err.message);
             reject(err);
             return;
           }
           
-          // Generate a verification hash using a separate salt
-          const salt = crypto.randomBytes(16).toString('hex');
-          const verificationHash = crypto
-            .createHash('sha256')
-            .update(password + salt)
-            .digest('hex');
-          
-          // Store verification hash
-          this.db.run(
-            'INSERT OR REPLACE INTO master_verification (id, verification_hash, salt) VALUES (1, ?, ?)',
-            [verificationHash, salt],
-            (err) => {
-              if (err) {
-                console.error('Error storing verification hash:', err.message);
-                reject(err);
-                return;
-              }
-              console.log('Stored master password verification');
-              
-              // Clear any existing security questions
-              this.db.run('DELETE FROM security_questions', (err) => {
+          // Create security questions table
+          this.db.run(`
+            CREATE TABLE IF NOT EXISTS security_questions (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              question_id INTEGER NOT NULL,
+              answer_hash TEXT NOT NULL,
+              salt TEXT NOT NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+          `, (err) => {
+            if (err) {
+              console.error('Error creating security questions table:', err.message);
+              reject(err);
+              return;
+            }
+            
+            // Generate a verification hash using a separate salt
+            const salt = crypto.randomBytes(16).toString('hex');
+            const verificationHash = crypto
+              .createHash('sha256')
+              .update(password + salt)
+              .digest('hex');
+            
+            // Store verification hash
+            this.db.run(
+              'INSERT OR REPLACE INTO master_verification (id, verification_hash, salt) VALUES (1, ?, ?)',
+              [verificationHash, salt],
+              (err) => {
                 if (err) {
-                  console.error('Error clearing security questions:', err.message);
+                  console.error('Error storing verification hash:', err.message);
                   reject(err);
                   return;
                 }
+                console.log('Stored master password verification');
                 
-                // Store security questions
-                const insertSecurity = this.db.prepare(
-                  'INSERT INTO security_questions (question_id, answer_hash, salt) VALUES (?, ?, ?)'
-                );
-                
-                try {
-                  securityQuestions.forEach(question => {
-                    const questionSalt = crypto.randomBytes(16).toString('hex');
-                    const answerHash = crypto
-                      .createHash('sha256')
-                      .update(question.answer + questionSalt)
-                      .digest('hex');
-                    
-                    insertSecurity.run(question.questionId, answerHash, questionSalt);
-                  });
+                // Clear any existing security questions
+                this.db.run('DELETE FROM security_questions', (err) => {
+                  if (err) {
+                    console.error('Error clearing security questions:', err.message);
+                    reject(err);
+                    return;
+                  }
                   
-                  insertSecurity.finalize((err) => {
-                    if (err) {
-                      console.error('Error finalizing security questions insertion:', err.message);
-                      reject(err);
-                      return;
-                    }
+                  // Store security questions
+                  const insertSecurity = this.db.prepare(
+                    'INSERT INTO security_questions (question_id, answer_hash, salt) VALUES (?, ?, ?)'
+                  );
+                  
+                  try {
+                    securityQuestions.forEach(question => {
+                      const questionSalt = crypto.randomBytes(16).toString('hex');
+                      const answerHash = crypto
+                        .createHash('sha256')
+                        .update(question.answer + questionSalt)
+                        .digest('hex');
+                      
+                      insertSecurity.run(question.questionId, answerHash, questionSalt);
+                    });
                     
-                    // Create accounts table
-                    this._createAccountsTable(resolve, reject);
-                  });
-                } catch (error) {
-                  console.error('Error inserting security questions:', error);
-                  reject(error);
-                }
-              });
-            }
-          );
+                    insertSecurity.finalize((err) => {
+                      if (err) {
+                        console.error('Error finalizing security questions insertion:', err.message);
+                        reject(err);
+                        return;
+                      }
+                      
+                      // Create accounts table
+                      this._createAccountsTable(resolve, reject);
+                    });
+                  } catch (error) {
+                    console.error('Error inserting security questions:', error);
+                    reject(error);
+                  }
+                });
+              }
+            );
+          });
         });
       });
     });
@@ -953,6 +1007,154 @@ class Database {
           console.error('Error during security answers verification:', error);
           reject(error);
         });
+    });
+  }
+
+  // Generate a new TOTP secret
+  generateTOTPSecret() {
+    return authenticator.generateSecret(); // Generates a base32 secret key
+  }
+
+  // Enable TOTP for the user
+  enableTOTP() {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        reject(new Error('Database not initialized'));
+        return;
+      }
+      
+      // Generate a new secret
+      const secret = this.generateTOTPSecret();
+      
+      // Store it in the database
+      this.db.run(
+        'INSERT OR REPLACE INTO totp_settings (id, secret, enabled, updated_at) VALUES (1, ?, 1, CURRENT_TIMESTAMP)',
+        [secret],
+        (err) => {
+          if (err) {
+            console.error('Error enabling TOTP:', err);
+            reject(err);
+            return;
+          }
+          
+          console.log('TOTP enabled successfully');
+          resolve({ success: true, secret });
+        }
+      );
+    });
+  }
+
+  // Disable TOTP
+  disableTOTP() {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        reject(new Error('Database not initialized'));
+        return;
+      }
+      
+      this.db.run(
+        'UPDATE totp_settings SET enabled = 0, updated_at = CURRENT_TIMESTAMP WHERE id = 1',
+        [],
+        (err) => {
+          if (err) {
+            console.error('Error disabling TOTP:', err);
+            reject(err);
+            return;
+          }
+          
+          console.log('TOTP disabled successfully');
+          resolve(true);
+        }
+      );
+    });
+  }
+
+  // Get TOTP settings
+  getTOTPSettings() {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        reject(new Error('Database not initialized'));
+        return;
+      }
+      
+      this.db.get('SELECT * FROM totp_settings WHERE id = 1', (err, row) => {
+        if (err) {
+          console.error('Error getting TOTP settings:', err);
+          reject(err);
+          return;
+        }
+        
+        if (!row) {
+          // No settings yet, initialize with disabled state
+          resolve({ enabled: false, secret: null });
+          return;
+        }
+        
+        resolve({
+          enabled: row.enabled === 1,
+          secret: row.secret
+        });
+      });
+    });
+  }
+
+  // Verify TOTP code
+  verifyTOTPCode(token) {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        reject(new Error('Database not initialized'));
+        return;
+      }
+      
+      this.db.get('SELECT * FROM totp_settings WHERE id = 1 AND enabled = 1', (err, row) => {
+        if (err) {
+          console.error('Error getting TOTP settings for verification:', err);
+          reject(err);
+          return;
+        }
+        
+        if (!row || !row.secret) {
+          console.warn('TOTP not enabled or no secret found');
+          resolve(false);
+          return;
+        }
+        
+        try {
+          const isValid = authenticator.verify({ token, secret: row.secret });
+          resolve(isValid);
+        } catch (error) {
+          console.error('Error verifying TOTP code:', error);
+          reject(error);
+        }
+      });
+    });
+  }
+
+  // Combined authentication method (password OR TOTP)
+  authenticate(credential) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        if (!this.db) {
+          reject(new Error('Database not initialized'));
+          return;
+        }
+        
+        // Check if this is a numeric TOTP code
+        const isTOTPCode = /^\d{6,9}$/.test(credential);
+        
+        if (isTOTPCode) {
+          // Verify as TOTP code
+          const isValid = await this.verifyTOTPCode(credential);
+          resolve({ success: isValid, method: 'totp' });
+        } else {
+          // Verify as password
+          const isValid = await this.verifyMasterPassword(credential);
+          resolve({ success: isValid, method: 'password' });
+        }
+      } catch (error) {
+        console.error('Authentication error:', error);
+        reject(error);
+      }
     });
   }
 }

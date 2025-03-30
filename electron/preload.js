@@ -5,7 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld(
   'api', {
     receive: (channel, func) => {
-      const validChannels = ['lock-application', 'db-response'];
+      const validChannels = ['lock-application', 'db-response', 'update-available', 'update-ready'];
       if (validChannels.includes(channel)) {
         // Deliberately strip event as it includes `sender` 
         ipcRenderer.on(channel, (event, ...args) => func(...args));
@@ -52,7 +52,13 @@ contextBridge.exposeInMainWorld(
         'get-security-questions',
         'verify-security-answers',
         'reset-password',
-        'get-last-error'
+        'get-last-error',
+        // Add new TOTP channels
+        'authenticate',
+        'get-totp-settings',
+        'enable-totp',
+        'disable-totp',
+        'verify-totp'
       ];
       if (validChannels.includes(channel)) {
         return ipcRenderer.invoke(channel, data);

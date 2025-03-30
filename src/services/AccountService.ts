@@ -2,6 +2,21 @@ import { Account } from '../types/Account';
 import '../types/ElectronAPI'; // Import for type augmentation
 import { SecurityQuestionAnswer } from '../types/SecurityQuestion';
 
+// Interface for TOTP settings
+export interface TOTPSettings {
+  enabled: boolean;
+  secret: string | null;
+}
+
+// Interface for TOTP setup result
+export interface TOTPSetupResult {
+  success: boolean;
+  secret?: string;
+  qrCode?: string;
+  manualEntryKey?: string;
+  error?: string;
+}
+
 export class AccountService {
   // Check if the database exists
   static async databaseExists(): Promise<boolean> {
@@ -39,6 +54,123 @@ export class AccountService {
     }
   }
 
+  // Authenticate with either password or TOTP code
+  static async authenticate(credential: string): Promise<{ success: boolean; method?: 'password' | 'totp' }> {
+    if (!window.api) {
+      console.error('Electron API not available - cannot authenticate');
+      return { success: false };
+    }
+
+    try {
+      console.log('Authenticating...');
+      const result = await window.api.invoke('authenticate', credential);
+      console.log('Authentication result:', result);
+      
+      return { 
+        success: result.success,
+        method: result.method
+      };
+    } catch (error) {
+      console.error('Failed to authenticate:', error);
+      return { success: false };
+    }
+  }
+
+  // Get TOTP settings
+  static async getTOTPSettings(): Promise<TOTPSettings | null> {
+    if (!window.api) {
+      console.error('Electron API not available - cannot get TOTP settings');
+      return null;
+    }
+
+    try {
+      console.log('Getting TOTP settings...');
+      const result = await window.api.invoke('get-totp-settings', null);
+      console.log('Get TOTP settings result:', result);
+      
+      if (result.success) {
+        return result.settings;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Failed to get TOTP settings:', error);
+      return null;
+    }
+  }
+
+  // Enable TOTP and get QR code
+  static async enableTOTP(): Promise<TOTPSetupResult> {
+    if (!window.api) {
+      console.error('Electron API not available - cannot enable TOTP');
+      return { success: false, error: 'Electron API not available' };
+    }
+
+    try {
+      console.log('Enabling TOTP...');
+      const result = await window.api.invoke('enable-totp', null);
+      console.log('Enable TOTP result:', result);
+      
+      if (result.success) {
+        return {
+          success: true,
+          secret: result.secret,
+          qrCode: result.qrCode,
+          manualEntryKey: result.manualEntryKey
+        };
+      }
+      
+      return { 
+        success: false,
+        error: result.error || 'Failed to enable TOTP'
+      };
+    } catch (error) {
+      console.error('Failed to enable TOTP:', error);
+      return { 
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  // Disable TOTP
+  static async disableTOTP(): Promise<boolean> {
+    if (!window.api) {
+      console.error('Electron API not available - cannot disable TOTP');
+      return false;
+    }
+
+    try {
+      console.log('Disabling TOTP...');
+      const result = await window.api.invoke('disable-totp', null);
+      console.log('Disable TOTP result:', result);
+      
+      return result.success;
+    } catch (error) {
+      console.error('Failed to disable TOTP:', error);
+      return false;
+    }
+  }
+
+  // Verify TOTP code
+  static async verifyTOTPCode(token: string): Promise<boolean> {
+    if (!window.api) {
+      console.error('Electron API not available - cannot verify TOTP code');
+      return false;
+    }
+
+    try {
+      console.log('Verifying TOTP code...');
+      const result = await window.api.invoke('verify-totp', token);
+      console.log('Verify TOTP code result:', result);
+      
+      return result.success;
+    } catch (error) {
+      console.error('Failed to verify TOTP code:', error);
+      return false;
+    }
+  }
+  
   // Set up a new database with password and security questions
   static async setupDatabase(
     password: string, 
