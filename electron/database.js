@@ -119,7 +119,8 @@ class Database {
           }
           console.log('Connected to the SQLite database');
           
-          // Proceed with initialization...
+          // For TOTP authentication, we need to securely store the original master password
+          // but in an encrypted form that we can recover
           this._initializeTables(masterPassword, dbExists, resolve, reject);
         });
       } catch (error) {
@@ -1143,13 +1144,68 @@ class Database {
         const isTOTPCode = /^\d{6,9}$/.test(credential);
         
         if (isTOTPCode) {
+          // First check if TOTP is enabled
+          const totpSettings = await new Promise((resolveQuery, rejectQuery) => {
+            this.db.get('SELECT * FROM totp_settings WHERE id = 1', (err, result) => {
+              if (err) rejectQuery(err);
+              else resolveQuery(result);
+            });
+          });
+          
+          if (!totpSettings || totpSettings.enabled !== 1) {
+            console.log('TOTP authentication attempted but not enabled');
+            resolve({ success: false, method: 'totp', error: 'TOTP not enabled' });
+            return;
+          }
+          
           // Verify as TOTP code
           const isValid = await this.verifyTOTPCode(credential);
-          resolve({ success: isValid, method: 'totp' });
+          
+          if (isValid) {
+            // Get the master password from the verification record to set up encryption
+            const row = await new Promise((resolveQuery, rejectQuery) => {
+              this.db.get('SELECT verification_hash, salt FROM master_verification WHERE id = 1', (err, result) => {
+                if (err) rejectQuery(err);
+                else resolveQuery(result);
+              });
+            });
+            
+            if (!row) {
+              reject(new Error('Master verification record not found'));
+              return;
+            }
+            
+            // When using TOTP, we generate a stable key from the verification hash
+            // which will be consistent across sessions
+            const stableKey = crypto
+              .createHash('sha256')
+              .update(row.verification_hash)
+              .digest('hex');
+              
+            this.masterKey = stableKey;
+            
+            // Authentication successful
+            resolve({ success: true, method: 'totp' });
+          } else {
+            // Important: Don't change the masterKey when TOTP fails
+            console.log('TOTP verification failed');
+            resolve({ success: false, method: 'totp', error: 'Invalid TOTP code' });
+          }
         } else {
           // Verify as password
           const isValid = await this.verifyMasterPassword(credential);
-          resolve({ success: isValid, method: 'password' });
+          
+          if (isValid) {
+            // Set the master key based on the password for encryption/decryption
+            this.masterKey = crypto
+              .createHash('sha256')
+              .update(credential)
+              .digest('hex');
+            
+            resolve({ success: true, method: 'password' });
+          } else {
+            resolve({ success: false, method: 'password', error: 'Invalid password' });
+          }
         }
       } catch (error) {
         console.error('Authentication error:', error);
