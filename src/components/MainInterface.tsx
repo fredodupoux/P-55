@@ -2,6 +2,7 @@ import AddIcon from '@mui/icons-material/Add';
 import KeyIcon from '@mui/icons-material/Key';
 import LogoutIcon from '@mui/icons-material/Logout';
 import SearchIcon from '@mui/icons-material/Search';
+import SecurityIcon from '@mui/icons-material/Security';
 import {
   AppBar,
   Box,
@@ -29,6 +30,7 @@ import AccountDetailPanel from './AccountDetailPanel';
 import AccountForm from './AccountForm';
 import PasswordChangeDialog from './PasswordChangeDialog';
 import ThemeToggle from './ThemeToggle';
+import TOTPSetupDialog from './TOTPSetupDialog';
 
 interface MainInterfaceProps {
   onLogout: () => void;
@@ -50,6 +52,7 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
     severity: 'info'
   });
   const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
+  const [totpSetupOpen, setTotpSetupOpen] = useState(false);
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
 
   // Load accounts when component mounts
@@ -70,7 +73,6 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
         setIsLoading(false);
       }
     };
-
     loadAccounts();
   }, []);
 
@@ -192,10 +194,23 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
     setPasswordChangeOpen(true);
   };
 
+  const handleTOTPSetupOpen = () => {
+    handleMenuClose();
+    setTotpSetupOpen(true);
+  };
+
   const handlePasswordChangeSuccess = () => {
     setNotification({
       open: true,
       message: 'Master password changed successfully',
+      severity: 'success'
+    });
+  };
+
+  const handleTOTPSetupSuccess = () => {
+    setNotification({
+      open: true,
+      message: 'Two-factor authentication settings updated',
       severity: 'success'
     });
   };
@@ -231,6 +246,11 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
             <MenuItem onClick={handlePasswordChangeOpen}>
               Change Master Password
             </MenuItem>
+            <MenuItem onClick={handleTOTPSetupOpen}>
+              <SecurityIcon fontSize="small" sx={{ mr: 1 }} />
+              Two-Factor Authentication
+            </MenuItem>
+            <Divider />
             <MenuItem onClick={() => {
               AccountService.createBackup();
               handleMenuClose();
@@ -245,7 +265,6 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
           </Menu>
         </Toolbar>
       </AppBar>
-
       <Grid container spacing={2} sx={{ mt: 2 }}>
         {/* Left Panel - Account List */}
         <Grid item xs={12} md={4}>
@@ -356,7 +375,7 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
           </Paper>
         </Grid>
       </Grid>
-
+      
       {/* Notification Snackbar */}
       <Snackbar 
         open={notification.open} 
@@ -371,12 +390,19 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
           {notification.message}
         </Alert>
       </Snackbar>
-
+      
       {/* Password Change Dialog */}
       <PasswordChangeDialog 
         open={passwordChangeOpen} 
         onClose={() => setPasswordChangeOpen(false)}
         onSuccess={handlePasswordChangeSuccess}
+      />
+      
+      {/* TOTP Setup Dialog */}
+      <TOTPSetupDialog
+        open={totpSetupOpen}
+        onClose={() => setTotpSetupOpen(false)}
+        onSuccess={handleTOTPSetupSuccess}
       />
     </Box>
   );

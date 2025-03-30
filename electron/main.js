@@ -1,8 +1,10 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const isDev = require('electron-is-dev');
 const database = require('./database');
+const { autoUpdater } = require('electron-updater');
+const qrcode = require('qrcode');
 
 // Setup logging
 const userDataPath = app.getPath('userData');
@@ -11,6 +13,18 @@ if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
 }
 const logFile = path.join(logDir, `app-${new Date().toISOString().slice(0, 10)}.log`);
+
+// Flag to track if database is initialized
+let isDbInitialized = false;
+// Add a variable to track the last error
+let lastError = {
+  message: '',
+  isInvalidPassword: false
+};
+
+// Track authentication timeouts
+let authTimeoutId = null;
+const AUTH_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 // Save original console methods before overriding
 const originalConsole = {
@@ -104,18 +118,11 @@ console.info = (message, ...args) => {
 };
 
 let mainWindow;
-let isDbInitialized = false;
 
 // Log app start using writeToLog directly to avoid possible issues
 writeToLog('info', `Application started - Version: ${app.getVersion()}`);
 writeToLog('info', `User data path: ${userDataPath}`);
 writeToLog('info', `Log file: ${logFile}`);
-
-// Add a variable to track the last error
-let lastError = {
-  message: '',
-  isInvalidPassword: false
-};
 
 function createWindow() {
   // Create the browser window with senior-friendly dimensions
@@ -179,6 +186,20 @@ app.whenReady().then(() => {
   ensureUserDirectories();
   
   createWindow();
+  
+  // Set up auto-updater events
+  autoUpdater.on('update-available', () => {
+    mainWindow.webContents.send('update-available');
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    mainWindow.webContents.send('update-ready');
+  });
+
+  // Check for updates
+  autoUpdater.checkForUpdatesAndNotify().catch(err => {
+    console.error('Auto-updater error:', err);
+  });
 }).catch(error => {
   writeToLog('error', 'Failed to initialize app', error);
 });
@@ -560,3 +581,156 @@ ipcMain.handle('reset-password', async (event, { newPassword, questionAnswers })
 ipcMain.handle('get-last-error', () => {
   return lastError;
 });
+
+// New authenticate endpoint that handles both password and TOTP
+ipcMain.handle('authenticate', async (event, credential) => {
+  try {
+    // Clear any previous error
+    lastError = null;
+    
+    // Check if the database has been initialized already
+    if (!isDbInitialized) {
+      // If not, initialize it first
+      await database.initialize(credential);
+    }
+    
+    // Then authenticate with either password or TOTP code
+    const result = await database.authenticate(credential);
+    
+    if (result.success) {
+      // Start auto-lock timer
+      startAuthTimeout(mainWindow);
+      isDbInitialized = true;
+      return { success: true, method: result.method };
+    } else {
+      lastError = {
+        message: 'Invalid credentials',
+        isInvalidPassword: true
+      };
+      return { success: false, error: 'Invalid credentials' };
+    }
+  } catch (error) {
+    console.error('Authentication error:', error);
+    
+    // Store the error for future reference
+    lastError = {
+      message: error.message,
+      isInvalidPassword: error.message === 'Invalid master password'
+    };
+    
+    return { success: false, error: error.message };
+  }
+});
+
+// Get TOTP settings
+ipcMain.handle('get-totp-settings', async () => {
+  try {
+    if (!isDbInitialized) {
+      console.error('Cannot get TOTP settings: Database not initialized');
+      return { success: false, error: 'Database not initialized' };
+    }
+    
+    console.log('Getting TOTP settings...');
+    const settings = await database.getTOTPSettings();
+    
+    return { success: true, settings };
+  } catch (error) {
+    console.error('Failed to get TOTP settings:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Enable TOTP
+ipcMain.handle('enable-totp', async () => {
+  try {
+    if (!isDbInitialized) {
+      console.error('Cannot enable TOTP: Database not initialized');
+      return { success: false, error: 'Database not initialized' };
+    }
+    
+    console.log('Enabling TOTP...');
+    const result = await database.enableTOTP();
+    
+    if (result.success && result.secret) {
+      // Generate QR code for the secret
+      const appName = 'Pass+55';
+      const otpAuthUrl = `otpauth://totp/${appName}?secret=${result.secret}&issuer=${appName}`;
+      
+      const qrCode = await qrcode.toDataURL(otpAuthUrl);
+      
+      return { 
+        success: true, 
+        secret: result.secret, 
+        qrCode,
+        manualEntryKey: result.secret 
+      };
+    }
+    
+    return { success: false, error: 'Failed to enable TOTP' };
+  } catch (error) {
+    console.error('Failed to enable TOTP:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Disable TOTP
+ipcMain.handle('disable-totp', async () => {
+  try {
+    if (!isDbInitialized) {
+      console.error('Cannot disable TOTP: Database not initialized');
+      return { success: false, error: 'Database not initialized' };
+    }
+    
+    console.log('Disabling TOTP...');
+    const success = await database.disableTOTP();
+    
+    return { success };
+  } catch (error) {
+    console.error('Failed to disable TOTP:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Verify TOTP code
+ipcMain.handle('verify-totp', async (event, token) => {
+  try {
+    if (!isDbInitialized) {
+      console.error('Cannot verify TOTP: Database not initialized');
+      return { success: false, error: 'Database not initialized' };
+    }
+    
+    console.log('Verifying TOTP code...');
+    const isValid = await database.verifyTOTPCode(token);
+    
+    if (isValid) {
+      // Reset the auto-lock timer
+      startAuthTimeout(mainWindow);
+    }
+    
+    return { success: isValid };
+  } catch (error) {
+    console.error('Failed to verify TOTP code:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Function to start auto-lock timeout
+function startAuthTimeout(mainWindow) {
+  // Clear any existing timeout
+  clearAuthTimeout();
+  
+  // Start new timeout
+  authTimeoutId = setTimeout(() => {
+    // Lock the application after timeout
+    mainWindow.webContents.send('lock-application');
+    isDbInitialized = false;
+  }, AUTH_TIMEOUT_MS);
+}
+
+// Function to clear the authentication timeout
+function clearAuthTimeout() {
+  if (authTimeoutId) {
+    clearTimeout(authTimeoutId);
+    authTimeoutId = null;
+  }
+}
