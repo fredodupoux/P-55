@@ -76,6 +76,33 @@ export class AccountService {
     }
   }
 
+  // Enhanced authentication method to also return if key update is required
+  static async authenticateWithDetails(credential: string): Promise<{ 
+    success: boolean; 
+    method?: 'password' | 'totp';
+    updateKeyRequired?: boolean;
+  }> {
+    if (!window.api) {
+      console.error('Electron API not available - cannot authenticate with details');
+      return { success: false };
+    }
+
+    try {
+      console.log('Authenticating with details...');
+      const result = await window.api.invoke('authenticate', credential);
+      console.log('Authentication with details result:', result);
+      
+      return { 
+        success: result.success,
+        method: result.method,
+        updateKeyRequired: result.updateKeyRequired
+      };
+    } catch (error) {
+      console.error('Failed to authenticate with details:', error);
+      return { success: false };
+    }
+  }
+
   // Get TOTP settings
   static async getTOTPSettings(): Promise<TOTPSettings | null> {
     if (!window.api) {
@@ -167,6 +194,28 @@ export class AccountService {
       return result.success;
     } catch (error) {
       console.error('Failed to verify TOTP code:', error);
+      return false;
+    }
+  }
+  
+  /**
+   * Set master password after TOTP authentication
+   * This is needed because TOTP authentication doesn't set up the correct encryption key for account operations
+   */
+  static async setMasterPasswordAfterTOTP(password: string): Promise<boolean> {
+    if (!window.api) {
+      console.error('Electron API not available - cannot set master password after TOTP');
+      return false;
+    }
+
+    try {
+      console.log('Setting master password after TOTP authentication...');
+      const result = await window.api.invoke('set-master-password-after-totp', password);
+      console.log('Set master password after TOTP result:', result);
+      
+      return result.success;
+    } catch (error) {
+      console.error('Failed to set master password after TOTP:', error);
       return false;
     }
   }
