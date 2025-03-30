@@ -59,7 +59,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
   const [password, setPassword] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [totpError, setTotpError] = useState<string | null>(null);
   const [localLoading, setLocalLoading] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [logs, setLogs] = useState<string | null>(null);
@@ -82,25 +83,27 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
-    setError(null);
+    // Clear errors when switching tabs
+    setPasswordError(null);
+    setTotpError(null);
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (password.trim() === '') {
-      setError('Password cannot be empty');
+      setPasswordError('Password cannot be empty');
       return;
     }
     
     setLocalLoading(true);
-    setError(null);
+    setPasswordError(null);
     
     try {
       await onLogin(password);
     } catch (error) {
       console.error('Login error:', error);
-      setError('Invalid master password');
+      setPasswordError('Invalid master password');
     } finally {
       setLocalLoading(false);
     }
@@ -110,19 +113,19 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
     e.preventDefault();
     
     if (totpCode.trim() === '' || !/^\d{6,9}$/.test(totpCode)) {
-      setError('Please enter a valid verification code');
+      setTotpError('Please enter a valid verification code');
       return;
     }
     
     setLocalLoading(true);
-    setError(null);
+    setTotpError(null);
     
     try {
       // Use the same onLogin handler but with the TOTP code
       await onLogin(totpCode);
     } catch (error) {
       console.error('TOTP login error:', error);
-      setError('Invalid verification code');
+      setTotpError('Invalid verification code');
     } finally {
       setLocalLoading(false);
     }
@@ -203,8 +206,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              error={!!error}
-              helperText={error || ""}
+              error={!!passwordError}
+              helperText={passwordError || ""}
               disabled={loading}
               InputProps={{
                 endAdornment: (
@@ -253,8 +256,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
               label="Verification Code"
               value={totpCode}
               onChange={(e) => setTotpCode(e.target.value)}
-              error={!!error}
-              helperText={error || ""}
+              error={!!totpError}
+              helperText={totpError || ""}
               disabled={loading}
               inputProps={{ 
                 maxLength: 9,

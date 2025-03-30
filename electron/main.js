@@ -586,7 +586,7 @@ ipcMain.handle('get-last-error', () => {
 ipcMain.handle('authenticate', async (event, credential) => {
   try {
     // Clear any previous error
-    lastError = null;
+    lastError = { message: '', isInvalidPassword: false };
     
     // Check if the database has been initialized already
     if (!isDbInitialized) {
@@ -603,11 +603,28 @@ ipcMain.handle('authenticate', async (event, credential) => {
       isDbInitialized = true;
       return { success: true, method: result.method };
     } else {
-      lastError = {
-        message: 'Invalid credentials',
-        isInvalidPassword: true
-      };
-      return { success: false, error: 'Invalid credentials' };
+      // Set a more specific error message based on the authentication method
+      if (result.method === 'totp') {
+        lastError = {
+          message: result.error || 'Invalid verification code',
+          isInvalidPassword: false
+        };
+        return { 
+          success: false, 
+          error: result.error || 'Invalid verification code',
+          method: 'totp'
+        };
+      } else {
+        lastError = {
+          message: result.error || 'Invalid master password',
+          isInvalidPassword: true
+        };
+        return { 
+          success: false, 
+          error: result.error || 'Invalid master password',
+          method: 'password'
+        };
+      }
     }
   } catch (error) {
     console.error('Authentication error:', error);
@@ -615,7 +632,7 @@ ipcMain.handle('authenticate', async (event, credential) => {
     // Store the error for future reference
     lastError = {
       message: error.message,
-      isInvalidPassword: error.message === 'Invalid master password'
+      isInvalidPassword: error.message.includes('Invalid master password')
     };
     
     return { success: false, error: error.message };
