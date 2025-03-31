@@ -139,7 +139,7 @@ function createWindow() {
   // Load the index.html from React dev server or the built file
   const startUrl = isDev 
     ? 'http://localhost:3000' 
-    : `file://${path.join(__dirname, '../build/index.html')}`;
+    : `file://${path.join(app.getAppPath(), '/build/index.html')}`;
   
   writeToLog('info', `Loading app from: ${startUrl}`);
   
@@ -670,7 +670,7 @@ ipcMain.handle('enable-totp', async () => {
     
     if (result.success && result.secret) {
       // Generate QR code for the secret
-      const appName = 'Pass+55';
+      const appName = 'P+55';
       const otpAuthUrl = `otpauth://totp/${appName}?secret=${result.secret}&issuer=${appName}`;
       
       const qrCode = await qrcode.toDataURL(otpAuthUrl);

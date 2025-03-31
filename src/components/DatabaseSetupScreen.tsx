@@ -1,21 +1,21 @@
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import {
-    Box,
-    Button,
-    CircularProgress,
-    FormControl,
-    FormHelperText,
-    FormLabel,
-    IconButton,
-    InputAdornment,
-    MenuItem,
-    Paper,
-    Select,
-    Step,
-    StepLabel,
-    Stepper,
-    TextField,
-    Typography
+  Box,
+  Button,
+  CircularProgress,
+  FormControl,
+  FormHelperText,
+  FormLabel,
+  IconButton,
+  InputAdornment,
+  MenuItem,
+  Paper,
+  Select,
+  Step,
+  StepLabel,
+  Stepper,
+  TextField,
+  Typography
 } from '@mui/material';
 import React, { useState } from 'react';
 import AccountService from '../services/AccountService';
@@ -185,11 +185,11 @@ const DatabaseSetupScreen: React.FC<DatabaseSetupScreenProps> = ({
           align="center"
           sx={{ mb: 3 }}
         >
-          Set Up Pass+55
+          Set Up P+55
         </Typography>
         
         <Typography variant="body1" paragraph align="center">
-          Welcome to Pass+55! Please create a master password and set up security questions
+          Welcome to P+55! Please create a master password and set up security questions
           to protect your password database.
         </Typography>
         

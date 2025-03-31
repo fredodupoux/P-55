@@ -1,20 +1,20 @@
 import { Help, Security, Visibility, VisibilityOff } from '@mui/icons-material';
 import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  InputAdornment,
-  Paper,
-  Tab,
-  Tabs,
-  TextField,
-  Typography
+    Alert,
+    Box,
+    Button,
+    CircularProgress,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    IconButton,
+    InputAdornment,
+    Paper,
+    Tab,
+    Tabs,
+    TextField,
+    Typography
 } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import AccountService from '../services/AccountService';
@@ -170,7 +170,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({
           align="center"
           sx={{ mb: 3 }}
         >
-          Welcome to Pass+55
+          Welcome to P+55
         </Typography>
         
         {isTotpEnabled && (
