@@ -1,7 +1,7 @@
-# Pass+55: A Simple Password Manager for Seniors
+# P+55: A Simple Password Manager for Seniors
 
 ## Overview
-Pass+55 is a user-friendly, multiplatform password manager designed specifically for older adults. It provides a simple, intuitive interface similar to a notes app, making it easy to store and manage account credentials securely.
+P+55 is a user-friendly, multiplatform password manager designed specifically for older adults. It provides a simple, intuitive interface similar to a notes app, making it easy to store and manage account credentials securely.
 
 ## Key Features
 - **Two-Panel Layout**:
@@ -35,7 +35,7 @@ Pass+55 is a user-friendly, multiplatform password manager designed specifically
 3. **Mobile Applications**: iOS and Android versions with biometric authentication.
 
 ## Accessibility
-Pass+55 is designed with accessibility in mind, ensuring ease of use for seniors with vision or motor impairments.
+P+55 is designed with accessibility in mind, ensuring ease of use for seniors with vision or motor impairments.
 
 ## License
 This project is licensed under the MIT License.

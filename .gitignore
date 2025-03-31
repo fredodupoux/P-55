@@ -4,6 +4,7 @@ node_modules/
 # Production
 dist/
 build/
+release/
 
 # Debug logs
 npm-debug.log*
