@@ -6,6 +6,17 @@ const database = require('./database');
 const { autoUpdater } = require('electron-updater');
 const qrcode = require('qrcode');
 
+// Add this at the top of the file, before other requires
+if (process.platform === 'win32' && process.resourcesPath) {
+  try {
+    // On Windows, try to use the SQLite3 module from extraResources
+    process.env.SQLITE3_BINARY_PATH = require('path').join(process.resourcesPath, 'sqlite3', 'node_sqlite3.node');
+    console.log('Set SQLite3 binary path for Windows:', process.env.SQLITE3_BINARY_PATH);
+  } catch (err) {
+    console.error('Failed to set SQLite3 binary path:', err);
+  }
+}
+
 // Setup logging
 const userDataPath = app.getPath('userData');
 const logDir = path.join(userDataPath, 'logs');

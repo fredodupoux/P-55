@@ -15,9 +15,14 @@
     "build": "react-scripts build",
     "postbuild": "cp -r electron build/",
     "build:electron": "electron-builder",
-    "package:mac": "npm run build && npm run postbuild && electron-builder --mac",
-    "package:win": "npm run build && npm run postbuild && electron-builder --win",
-    "package:all": "npm run build && npm run postbuild && electron-builder --mac --win",
+    "package:mac": "npm run build && npm run postbuild && electron-builder --mac --x64",
+    "package:mac-intel": "npm run build && npm run postbuild && electron-builder --mac --x64",
+    "package:win": "npm run build && npm run postbuild && electron-builder --win --x64 --dir",
+    "package:win-intel": "npm run build && npm run postbuild && electron-builder --win --x64",
+    "package:win-setup": "npm run build && npm run postbuild && npm rebuild sqlite3 --build-from-source --target_platform=win32 --target_arch=x64 --target=24.8.8 --update-binary && electron-builder --win --x64",
+    "package:all": "npm run build && npm run postbuild && electron-builder --mac --win --x64",
+    "package:win-fixed": "npm run build && npm run postbuild && cross-env npm_config_platform=win32 npm_config_arch=x64 electron-builder --win --x64",
+    "package:win-sqlite": "node rebuild-sqlite3.js && npm run build && npm run postbuild && electron-builder --win --x64",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "postinstall": "electron-builder install-app-deps"
@@ -40,6 +45,7 @@
     "web-vitals": "^4.2.4"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.7.1",
     "@testing-library/jest-dom": "^5.16.5",
     "@testing-library/react": "^14.0.0",
     "@testing-library/user-event": "^14.4.3",
@@ -48,6 +54,7 @@
     "@types/react": "^18.2.6",
     "@types/react-dom": "^18.2.4",
     "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
     "electron": "^24.3.0",
     "electron-builder": "^26.0.12",
     "eslint": "^8.40.0",
@@ -64,16 +71,25 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "executableName": "P+55"
     },
-    "linux": {
-      "target": ["AppImage", "deb"],
-      "icon": "assets/icon.png"
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "P+55"
     },
     "files": [
       "build/**/*",
       "electron/**/*",
       "node_modules/**/*"
+    ],
+    "extraFiles": [
+      {
+        "from": "node_modules/sqlite3",
+        "to": "resources/sqlite3"
+      }
     ],
     "directories": {
       "buildResources": "assets",
@@ -81,7 +97,12 @@
     },
     "extraMetadata": {
       "main": "electron/main.js"
-    }
+    },
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node",
+      "node_modules/sqlite3/**/*"
+    ]
   },
   "browserslist": {
     "production": [
