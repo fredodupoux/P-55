@@ -18,7 +18,7 @@ yarn-error.log*
 # IDE
 .vscode/
 .idea/
-
+Security.md
 # OS
 .DS_Store
 Thumbs.db
