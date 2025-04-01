@@ -43,6 +43,19 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
+      - name: Extract version info
+        id: version_info
+        run: |
+          if [ "$GITHUB_REF_NAME" = "latest" ]; then
+            VERSION=$(node -p "require('./package.json').version")
+            echo "DMG_VERSION=$VERSION" >> $GITHUB_ENV
+            echo "ARM64_DMG_VERSION=${VERSION}-arm64" >> $GITHUB_ENV
+          else
+            echo "DMG_VERSION=$GITHUB_REF_NAME" >> $GITHUB_ENV
+            echo "ARM64_DMG_VERSION=${GITHUB_REF_NAME}-arm64" >> $GITHUB_ENV
+          fi
+        shell: bash
+
       - name: Build and Package for macOS
         run: npm run package:mac
         env:
@@ -53,8 +66,8 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: |
-            ./release/P+55-${{ github.ref_name == 'latest' && '0.1.0' || github.ref_name }}.dmg
-            ./release/P+55-${{ github.ref_name == 'latest' && '0.1.0-arm64' || github.ref_name + '-arm64' }}.dmg
+            ./release/P+55-${{ env.DMG_VERSION }}.dmg
+            ./release/P+55-${{ env.ARM64_DMG_VERSION }}.dmg
             ./release/latest-mac.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -76,8 +89,8 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Extract version from package.json
-        id: package_version
+      - name: Extract version info
+        id: version_info
         run: |
           if [ "$GITHUB_REF_NAME" = "latest" ]; then
             VERSION=$(node -p "require('./package.json').version")
