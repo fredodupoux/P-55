@@ -12,7 +12,6 @@ jobs:
       contents: write
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
-      release_id: ${{ steps.create_release.outputs.id }}
     steps:
       - name: Create Release
         id: create_release
@@ -82,7 +81,7 @@ jobs:
         shell: bash
 
       - name: Build and Package for Windows
-        run: npm run package:win-setup
+        run: npm run package:win-sqlite
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
