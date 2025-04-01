@@ -1,8 +1,76 @@
-const sqlite3 = require('sqlite3').verbose();
+// Import required modules
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { app } = require('electron');
+
+// Better SQLite3 loading with multiple fallback mechanisms
+let sqlite3;
+try {
+  // First try the normal way
+  sqlite3 = require('sqlite3');
+  console.log('SQLite3 loaded successfully via standard require');
+} catch (mainErr) {
+  console.warn('Failed to load SQLite3 normally:', mainErr.message);
+  
+  try {
+    // For packaged apps, try the unpacked location
+    const isProduction = app.isPackaged;
+    const appPath = app.getAppPath();
+    
+    // Different paths based on environment
+    let modulePath;
+    if (isProduction) {
+      // In production, native modules should be unpacked
+      const resourcesPath = process.resourcesPath;
+      const unpacked = 'app.asar.unpacked';
+      modulePath = path.join(resourcesPath, unpacked, 'node_modules', 'sqlite3');
+      console.log('Trying SQLite3 at production path:', modulePath);
+    } else {
+      // In development, use normal node_modules path
+      modulePath = path.join(appPath, 'node_modules', 'sqlite3');
+      console.log('Trying SQLite3 at development path:', modulePath);
+    }
+    
+    // Try to load from determined path
+    sqlite3 = require(modulePath);
+    console.log('SQLite3 loaded successfully via explicit path');
+  } catch (pathErr) {
+    console.error('Failed to load SQLite3 from explicit path:', pathErr.message);
+    
+    try {
+      // One final approach - try a relative path
+      const relativePath = path.join(__dirname, '..', 'node_modules', 'sqlite3');
+      console.log('Trying SQLite3 at relative path:', relativePath);
+      sqlite3 = require(relativePath);
+      console.log('SQLite3 loaded successfully via relative path');
+    } catch (relErr) {
+      console.error('All SQLite3 loading approaches failed:', relErr.message);
+      
+      // Create a dummy DB object with methods that throw meaningful errors
+      const createErrorFn = (methodName) => () => {
+        throw new Error(`SQLite3 is not available: ${methodName} cannot be used. Database is not functional.`);
+      };
+      
+      // Mock with error-throwing methods to avoid undefined errors
+      sqlite3 = {
+        Database: class MockDatabase {
+          constructor() { 
+            throw new Error('SQLite3 module could not be loaded. Database operations will not work.');
+          }
+        },
+        verbose: () => sqlite3
+      };
+      
+      // Throw a clear error - this will be caught in the main process
+      throw new Error('Could not load SQLite3 module. Database operations will not work.');
+    }
+  }
+}
+
+// Use verbose mode for better logging
+sqlite3 = sqlite3.verbose();
+
 // Add otplib for TOTP support
 const { authenticator } = require('otplib');
 
