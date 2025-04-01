@@ -36,9 +36,9 @@ P+55 (pass) is a user-friendly, multiplatform password manager designed specific
 P+55 is designed with accessibility in mind, ensuring ease of use for seniors with vision or motor impairments.
 
 ## 🌐 Global Support
-English 🇬🇧
-French 🇫🇷 _(coming soon)_
-Kreyol 🇭🇹 _(coming soon)_ 
+- English 🇬🇧
+- French 🇫🇷 _(coming soon)_
+- Kreyol 🇭🇹 _(coming soon)_ 
 
 ## 📜 License
 This project is licensed under the MIT License.
