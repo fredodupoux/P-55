@@ -7,9 +7,9 @@ import DatabaseSetupScreen from './components/DatabaseSetupScreen';
 import LoginScreen from './components/LoginScreen';
 import MainInterface from './components/MainInterface';
 import PasswordRecoveryDialog from './components/PasswordRecoveryDialog';
-import { ThemeContext } from './context/ThemeContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import AccountService from './services/AccountService';
-import { createTheme } from './theme/muiTheme';
+import { darkTheme, lightTheme } from './theme/muiTheme';
 import './types/ElectronAPI'; // Import for type augmentation
 import { SecurityQuestion } from './types/SecurityQuestion';
 
@@ -27,12 +27,13 @@ const securityQuestions: SecurityQuestion[] = [
   { id: 10, question: "What is the name of your favorite movie?" }
 ];
 
-// We don't need to redeclare Window interface here since it's in ElectronAPI.ts
+// Create a wrapper component that uses the theme context
+const AppContent = () => {
+  const { isDarkMode } = useTheme();
+  const theme = isDarkMode ? darkTheme : lightTheme;
 
-function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isDatabaseSetup, setIsDatabaseSetup] = useState<boolean | null>(null);
-  const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
   const [isLoading, setIsLoading] = useState(true);
   const [showPasswordRecovery, setShowPasswordRecovery] = useState(false);
   const [notification, setNotification] = useState({
@@ -40,19 +41,6 @@ function App() {
     message: '',
     severity: 'info' as 'info' | 'error' | 'success' | 'warning'
   });
-
-  // Check if dark mode is preferred
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('themeMode');
-    if (savedTheme) {
-      setThemeMode(savedTheme as 'light' | 'dark');
-    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setThemeMode('dark');
-    }
-    
-    // Add theme class to document for CSS variables
-    document.documentElement.dataset.theme = themeMode;
-  }, [themeMode]);
 
   // Check if database exists on load
   useEffect(() => {
@@ -218,16 +206,6 @@ function App() {
     });
   };
 
-  const toggleTheme = () => {
-    const newTheme = themeMode === 'light' ? 'dark' : 'light';
-    setThemeMode(newTheme);
-    localStorage.setItem('themeMode', newTheme);
-    document.documentElement.dataset.theme = newTheme;
-  };
-
-  // Create theme based on the selected mode
-  const theme = createTheme(themeMode);
-
   // Show loading state while checking if database is set up
   if (isLoading && isDatabaseSetup === null) {
     return (
@@ -246,60 +224,56 @@ function App() {
     );
   }
 
-  // Create a custom theme context value
-  const themeContextValue = {
-    mode: themeMode as 'light' | 'dark' | 'system',
-    isDarkMode: themeMode === 'dark',
-    setMode: (mode: 'light' | 'dark' | 'system') => {
-      setThemeMode(mode === 'system' ? 
-        (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : 
-        mode as 'light' | 'dark');
-    }
-  };
-
   return (
-    <ThemeContext.Provider value={themeContextValue}>
-      <MuiThemeProvider theme={theme}>
-        <CssBaseline />
-        <Box className="App" sx={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
-          {isAuthenticated ? (
-            <MainInterface onLogout={handleLogout} />
-          ) : isDatabaseSetup ? (
-            <LoginScreen 
-              onLogin={handleLogin} 
-              isLoading={isLoading} 
-              onForgotPassword={() => setShowPasswordRecovery(true)}
-            />
-          ) : (
-            <DatabaseSetupScreen 
-              onSetupComplete={handleDatabaseSetup}
-              securityQuestions={securityQuestions}
-            />
-          )}
-          
-          <Snackbar
-            open={notification.open}
-            autoHideDuration={6000}
-            onClose={handleCloseNotification}
-          >
-            <Alert
-              onClose={handleCloseNotification}
-              severity={notification.severity}
-              sx={{ width: '100%' }}
-            >
-              {notification.message}
-            </Alert>
-          </Snackbar>
-          
-          <PasswordRecoveryDialog
-            open={showPasswordRecovery}
-            onClose={() => setShowPasswordRecovery(false)}
-            onSuccess={handlePasswordRecoverySuccess}
+    <MuiThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box className="App" sx={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
+        {isAuthenticated ? (
+          <MainInterface onLogout={handleLogout} />
+        ) : isDatabaseSetup ? (
+          <LoginScreen 
+            onLogin={handleLogin} 
+            isLoading={isLoading} 
+            onForgotPassword={() => setShowPasswordRecovery(true)}
+          />
+        ) : (
+          <DatabaseSetupScreen 
+            onSetupComplete={handleDatabaseSetup}
             securityQuestions={securityQuestions}
           />
-        </Box>
-      </MuiThemeProvider>
-    </ThemeContext.Provider>
+        )}
+        
+        <Snackbar
+          open={notification.open}
+          autoHideDuration={6000}
+          onClose={handleCloseNotification}
+        >
+          <Alert
+            onClose={handleCloseNotification}
+            severity={notification.severity}
+            sx={{ width: '100%' }}
+          >
+            {notification.message}
+          </Alert>
+        </Snackbar>
+        
+        <PasswordRecoveryDialog
+          open={showPasswordRecovery}
+          onClose={() => setShowPasswordRecovery(false)}
+          onSuccess={handlePasswordRecoverySuccess}
+          securityQuestions={securityQuestions}
+        />
+      </Box>
+    </MuiThemeProvider>
+  );
+};
+
+// Main App component that provides the theme context
+function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
 

@@ -1,37 +1,44 @@
 import AddIcon from '@mui/icons-material/Add';
+import BackupIcon from '@mui/icons-material/Backup';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
 import KeyIcon from '@mui/icons-material/Key';
+import LightModeIcon from '@mui/icons-material/LightMode';
 import LogoutIcon from '@mui/icons-material/Logout';
+import PasswordIcon from '@mui/icons-material/Password';
 import SearchIcon from '@mui/icons-material/Search';
 import SecurityIcon from '@mui/icons-material/Security';
+import SettingsBrightnessIcon from '@mui/icons-material/SettingsBrightness';
+import TextDecreaseIcon from '@mui/icons-material/TextDecrease';
+import TextIncreaseIcon from '@mui/icons-material/TextIncrease';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import {
-    AppBar,
-    Box,
-    Button,
-    Divider,
-    Grid,
-    IconButton,
-    List,
-    ListItem,
-    ListItemButton,
-    ListItemText,
-    Menu,
-    MenuItem,
-    Paper,
-    Snackbar,
-    TextField,
-    Toolbar,
-    Typography
+  AppBar,
+  Box,
+  Button,
+  Divider,
+  Grid,
+  IconButton,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Paper,
+  Snackbar,
+  TextField,
+  Toolbar,
+  Typography
 } from '@mui/material';
 import Alert from '@mui/material/Alert';
 import React, { useEffect, useState } from 'react';
+import { useTheme } from '../context/ThemeContext';
 import AccountService from '../services/AccountService';
 import { Account } from '../types/Account';
 import AccountDetailPanel from './AccountDetailPanel';
 import AccountForm from './AccountForm';
 import PasswordChangeDialog from './PasswordChangeDialog';
-import ThemeToggle from './ThemeToggle';
 import TOTPSetupDialog from './TOTPSetupDialog';
-import ZoomControls from './ZoomControls';
 
 interface MainInterfaceProps {
   onLogout: () => void;
@@ -54,7 +61,36 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
   });
   const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
   const [totpSetupOpen, setTotpSetupOpen] = useState(false);
-  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [securityMenuAnchorEl, setSecurityMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [viewMenuAnchorEl, setViewMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+  const [isElectron, setIsElectron] = useState<boolean>(false);
+  
+  // Get theme context
+  const { mode, setMode, isDarkMode } = useTheme();
+
+  // Check if we're running in Electron
+  useEffect(() => {
+    setIsElectron(!!window.electronAPI);
+    
+    // Initialize zoom level
+    const initZoomLevel = async () => {
+      try {
+        if (window.electronAPI) {
+          const result = await window.electronAPI.getZoomLevel();
+          if (result.success) {
+            setZoomLevel(result.zoomFactor);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to get zoom level:', error);
+      }
+    };
+    
+    if (isElectron) {
+      initZoomLevel();
+    }
+  }, [isElectron]);
 
   // Load accounts when component mounts
   useEffect(() => {
@@ -182,22 +218,81 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
     setNotification({ ...notification, open: false });
   };
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
-    setMenuAnchorEl(event.currentTarget);
+  const handleSecurityMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setSecurityMenuAnchorEl(event.currentTarget);
   };
 
-  const handleMenuClose = () => {
-    setMenuAnchorEl(null);
+  const handleSecurityMenuClose = () => {
+    setSecurityMenuAnchorEl(null);
   };
 
-  const handlePasswordChangeOpen = () => {
-    handleMenuClose();
-    setPasswordChangeOpen(true);
+  const handleViewMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setViewMenuAnchorEl(event.currentTarget);
   };
 
-  const handleTOTPSetupOpen = () => {
-    handleMenuClose();
-    setTotpSetupOpen(true);
+  const handleViewMenuClose = () => {
+    setViewMenuAnchorEl(null);
+  };
+  
+  const handleThemeToggle = () => {
+    const newMode = isDarkMode ? 'light' : 'dark';
+    setMode(newMode);
+    handleViewMenuClose();
+    
+    setNotification({
+      open: true,
+      message: `Theme changed to ${isDarkMode ? 'Light Mode' : 'Dark Mode'}`,
+      severity: 'info'
+    });
+  };
+  
+  const handleSystemTheme = () => {
+    setMode('system');
+    handleViewMenuClose();
+    
+    setNotification({
+      open: true,
+      message: 'Theme set to System Default',
+      severity: 'info'
+    });
+  };
+
+  const handleZoomIn = async () => {
+    try {
+      if (window.electronAPI) {
+        const result = await window.electronAPI.zoomIn();
+        if (result.success) {
+          setZoomLevel(result.zoomFactor);
+          setNotification({
+            open: true,
+            message: `Text Size: ${Math.round(result.zoomFactor * 100)}%`,
+            severity: 'info'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to increase text size:', error);
+    }
+    handleViewMenuClose();
+  };
+
+  const handleZoomOut = async () => {
+    try {
+      if (window.electronAPI) {
+        const result = await window.electronAPI.zoomOut();
+        if (result.success) {
+          setZoomLevel(result.zoomFactor);
+          setNotification({
+            open: true,
+            message: `Text Size: ${Math.round(result.zoomFactor * 100)}%`,
+            severity: 'info'
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to decrease text size:', error);
+    }
+    handleViewMenuClose();
   };
 
   const handlePasswordChangeSuccess = () => {
@@ -224,49 +319,137 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
       flexDirection: 'column', 
       overflow: 'hidden'
     }}>
-      <AppBar position="static" color="primary">
-        <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+      <AppBar 
+        position="static" 
+        color="primary"
+        sx={{ 
+          boxShadow: 3
+        }}
+      >
+        <Toolbar 
+          sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between',
+            minHeight: '72px', // Increase the height (default is 64px)
+            py: 1.5 // Add vertical padding
+          }}
+        >
+          <Typography 
+            variant="h6" 
+            component="div" 
+            sx={{ 
+              display: 'flex',
+              alignItems: 'center',
+              marginRight: 2,
+              fontSize: '1.5rem' // Make the title a bit bigger
+            }}
+          >
             Pass+55
           </Typography>
-          <Button 
-            color="inherit"
-            onClick={handleMenuOpen}
-            startIcon={<KeyIcon />}
-            sx={{ mr: 1 }}
-          >
-            Security
-          </Button>
-          <ThemeToggle />
-          <Button 
-            color="inherit" 
-            onClick={onLogout}
-            startIcon={<LogoutIcon />}
-          >
-            Log Out
-          </Button>
+          
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Button 
+              color="inherit"
+              onClick={handleViewMenuOpen}
+              startIcon={<VisibilityIcon />}
+              sx={{ mr: 1.5, py: 1 }} // Slightly larger button
+            >
+              View
+            </Button>
+            
+            <Button 
+              color="inherit"
+              onClick={handleSecurityMenuOpen}
+              startIcon={<KeyIcon />}
+              sx={{ mr: 1.5, py: 1 }} // Slightly larger button
+            >
+              Security
+            </Button>
+            
+            <Button 
+              color="inherit" 
+              onClick={onLogout}
+              startIcon={<LogoutIcon />}
+              sx={{ py: 1 }} // Slightly larger button
+            >
+              Log Out
+            </Button>
+          </Box>
+          
+          {/* View Menu */}
           <Menu
-            anchorEl={menuAnchorEl}
-            open={Boolean(menuAnchorEl)}
-            onClose={handleMenuClose}
+            anchorEl={viewMenuAnchorEl}
+            open={Boolean(viewMenuAnchorEl)}
+            onClose={handleViewMenuClose}
           >
-            <MenuItem onClick={handlePasswordChangeOpen}>
+            {isElectron && (
+              <>
+                <MenuItem onClick={handleZoomIn}>
+                  <TextIncreaseIcon fontSize="small" sx={{ mr: 1 }} />
+                  Increase Text Size ({Math.round(zoomLevel * 100)}%)
+                </MenuItem>
+                <MenuItem onClick={handleZoomOut}>
+                  <TextDecreaseIcon fontSize="small" sx={{ mr: 1 }} />
+                  Decrease Text Size
+                </MenuItem>
+                <Divider />
+              </>
+            )}
+            
+            {/* Theme options - single toggle for Light/Dark */}
+            <MenuItem onClick={handleThemeToggle}>
+              {isDarkMode ? (
+                <>
+                  <LightModeIcon fontSize="small" sx={{ mr: 1 }} />
+                  Switch to Light Mode
+                </>
+              ) : (
+                <>
+                  <DarkModeIcon fontSize="small" sx={{ mr: 1 }} />
+                  Switch to Dark Mode
+                </>
+              )}
+            </MenuItem>
+            <MenuItem
+              onClick={handleSystemTheme}
+              selected={mode === 'system'}
+            >
+              <SettingsBrightnessIcon fontSize="small" sx={{ mr: 1 }} />
+              Use System Settings
+            </MenuItem>
+          </Menu>
+          
+          {/* Security Menu */}
+          <Menu
+            anchorEl={securityMenuAnchorEl}
+            open={Boolean(securityMenuAnchorEl)}
+            onClose={handleSecurityMenuClose}
+          >
+            <MenuItem onClick={() => {
+              handleSecurityMenuClose();
+              setPasswordChangeOpen(true);
+            }}>
+              <PasswordIcon fontSize="small" sx={{ mr: 1 }} />
               Change Master Password
             </MenuItem>
-            <MenuItem onClick={handleTOTPSetupOpen}>
+            <MenuItem onClick={() => {
+              handleSecurityMenuClose();
+              setTotpSetupOpen(true);
+            }}>
               <SecurityIcon fontSize="small" sx={{ mr: 1 }} />
               Two-Factor Authentication
             </MenuItem>
             <Divider />
             <MenuItem onClick={() => {
               AccountService.createBackup();
-              handleMenuClose();
+              handleSecurityMenuClose();
               setNotification({
                 open: true,
                 message: 'Backup created successfully',
                 severity: 'success'
               });
             }}>
+              <BackupIcon fontSize="small" sx={{ mr: 1 }} />
               Create Backup
             </MenuItem>
           </Menu>
@@ -390,9 +573,6 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
           </Grid>
         </Grid>
       </Box>
-      
-      {/* Zoom Controls */}
-      <ZoomControls />
       
       {/* Notification Snackbar */}
       <Snackbar 
