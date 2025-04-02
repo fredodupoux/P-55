@@ -602,29 +602,36 @@ ipcMain.handle('get-last-error', () => {
   return lastError;
 });
 
+// Update the authenticate handler to handle TOTP without requiring initialization first
+// Replace the authenticate handler (around line 600)
+
 // New authenticate endpoint that handles both password and TOTP
 ipcMain.handle('authenticate', async (event, credential) => {
   try {
     // Clear any previous error
     lastError = { message: '', isInvalidPassword: false };
     
-    // Check if the database has been initialized already
-    if (!isDbInitialized) {
-      // If not, initialize it first
-      await database.initialize(credential);
-    }
+    // Check if this is possibly a TOTP code (numeric and 6-8 digits)
+    const isTOTPCode = /^\d{6,9}$/.test(credential);
     
-    // Then authenticate with either password or TOTP code
-    const result = await database.authenticate(credential);
-    
-    if (result.success) {
-      // Start auto-lock timer
-      startAuthTimeout(mainWindow);
-      isDbInitialized = true;
-      return { success: true, method: result.method };
-    } else {
-      // Set a more specific error message based on the authentication method
-      if (result.method === 'totp') {
+    if (isTOTPCode) {
+      // For TOTP, we need to check if it's enabled and valid, even if DB isn't initialized
+      writeToLog('info', 'Attempting TOTP authentication without full database initialization');
+      
+      // Use a special method to verify TOTP without requiring full DB initialization
+      const result = await database.verifyTOTPWithoutInitialization(credential);
+      
+      if (result.success) {
+        // If TOTP is valid, then initialize the database properly without password
+        writeToLog('info', 'TOTP verification successful, initializing database properly');
+        await database.initializeAfterTOTP();
+        
+        // Start auto-lock timer
+        startAuthTimeout(mainWindow);
+        isDbInitialized = true;
+        return { success: true, method: 'totp' };
+      } else {
+        // Set specific error message for TOTP failure
         lastError = {
           message: result.error || 'Invalid verification code',
           isInvalidPassword: false
@@ -634,7 +641,26 @@ ipcMain.handle('authenticate', async (event, credential) => {
           error: result.error || 'Invalid verification code',
           method: 'totp'
         };
+      }
+    } else {
+      // Handle regular password authentication as before
+      
+      // Check if the database has been initialized already
+      if (!isDbInitialized) {
+        // If not, initialize it with the password
+        await database.initialize(credential);
+      }
+      
+      // Then authenticate with password
+      const result = await database.authenticate(credential);
+      
+      if (result.success) {
+        // Start auto-lock timer
+        startAuthTimeout(mainWindow);
+        isDbInitialized = true;
+        return { success: true, method: result.method };
       } else {
+        // Set a more specific error message for password failure
         lastError = {
           message: result.error || 'Invalid master password',
           isInvalidPassword: true
@@ -674,6 +700,34 @@ ipcMain.handle('get-totp-settings', async () => {
   } catch (error) {
     console.error('Failed to get TOTP settings:', error);
     return { success: false, error: error.message };
+  }
+});
+
+// Check TOTP status without requiring full database initialization
+ipcMain.handle('check-totp-enabled', async () => {
+  try {
+    writeToLog('info', 'Checking if TOTP is enabled without full database initialization');
+    
+    // Check if the database file exists
+    const dbPath = database.dbPath;
+    const exists = fs.existsSync(dbPath);
+    
+    if (!exists) {
+      console.log('Database does not exist, TOTP cannot be enabled');
+      return { success: true, enabled: false };
+    }
+    
+    // Use a temporary connection to check TOTP status
+    const totpStatus = await database.checkTOTPWithoutInitialization();
+    console.log('TOTP status checked:', totpStatus);
+    
+    return { 
+      success: true, 
+      enabled: totpStatus.enabled 
+    };
+  } catch (error) {
+    console.error('Failed to check TOTP status:', error);
+    return { success: false, error: error.message, enabled: false };
   }
 });
 

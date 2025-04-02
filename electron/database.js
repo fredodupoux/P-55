@@ -1341,6 +1341,181 @@ class Database {
       console.error('Error during database sync:', error);
     }
   }
+
+  // Check if TOTP is enabled without requiring full database initialization
+  checkTOTPWithoutInitialization() {
+    return new Promise((resolve, reject) => {
+      try {
+        // Create a temporary database connection directly
+        const sqlite3 = require('sqlite3').verbose();
+        const dbPath = this.dbPath;
+        
+        // Open a database connection in read-only mode
+        const tempDb = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
+          if (err) {
+            console.error('Error opening database for TOTP check:', err.message);
+            // If we can't open the database, assume TOTP is not enabled
+            resolve({ enabled: false });
+            return;
+          }
+          
+          // Check if the TOTP table exists and if it's enabled
+          tempDb.get(
+            `SELECT name FROM sqlite_master WHERE type='table' AND name='totp_settings'`,
+            (err, table) => {
+              if (err || !table) {
+                // Table doesn't exist, so TOTP cannot be enabled
+                tempDb.close();
+                resolve({ enabled: false });
+                return;
+              }
+              
+              // Table exists, now check if TOTP is enabled
+              tempDb.get('SELECT enabled FROM totp_settings WHERE id = 1', (err, row) => {
+                // Close the temporary connection
+                tempDb.close();
+                
+                if (err || !row) {
+                  // Error or no settings row found
+                  resolve({ enabled: false });
+                  return;
+                }
+                
+                // Return the TOTP enabled status
+                resolve({ enabled: row.enabled === 1 });
+              });
+            }
+          );
+        });
+      } catch (error) {
+        console.error('Error checking TOTP status:', error);
+        resolve({ enabled: false }); // Default to disabled on error
+      }
+    });
+  }
+
+  // Verify a TOTP code without requiring the database to be initialized first
+  verifyTOTPWithoutInitialization(token) {
+    return new Promise((resolve, reject) => {
+      try {
+        if (!token || !/^\d{6,9}$/.test(token)) {
+          console.error('Invalid TOTP token format');
+          resolve({ success: false, error: 'Invalid verification code format' });
+          return;
+        }
+        
+        // Create a temporary database connection directly
+        const sqlite3 = require('sqlite3').verbose();
+        const dbPath = this.dbPath;
+        
+        if (!fs.existsSync(dbPath)) {
+          console.error('Database file does not exist, cannot verify TOTP');
+          resolve({ success: false, error: 'Database does not exist' });
+          return;
+        }
+        
+        // Open a read-only connection to avoid any potential data modification
+        const tempDb = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
+          if (err) {
+            console.error('Error opening database for TOTP verification:', err.message);
+            resolve({ success: false, error: 'Could not open database' });
+            return;
+          }
+          
+          // First check if the TOTP table exists and TOTP is enabled
+          tempDb.get(
+            `SELECT name FROM sqlite_master WHERE type='table' AND name='totp_settings'`,
+            (err, table) => {
+              if (err || !table) {
+                // Table doesn't exist, so TOTP cannot be enabled
+                tempDb.close();
+                resolve({ success: false, error: 'TOTP not configured' });
+                return;
+              }
+              
+              // Table exists, check if TOTP is enabled and get the secret
+              tempDb.get('SELECT * FROM totp_settings WHERE id = 1 AND enabled = 1', (err, row) => {
+                if (err || !row || !row.secret) {
+                  // If there's an error or TOTP is not enabled or no secret is found
+                  tempDb.close();
+                  resolve({ success: false, error: 'TOTP not enabled' });
+                  return;
+                }
+                
+                // We have the secret, verify the token
+                try {
+                  // Verify the TOTP code
+                  const isValid = authenticator.verify({ token, secret: row.secret });
+                  
+                  // Store secret for later database initialization if verification succeeds
+                  if (isValid) {
+                    // Store the secret temporarily to use during initialization
+                    this._tempTOTPSecret = row.secret;
+                  }
+                  
+                  // Close the temporary connection
+                  tempDb.close();
+                  
+                  // Return the result
+                  resolve({ 
+                    success: isValid, 
+                    error: isValid ? null : 'Invalid verification code'
+                  });
+                } catch (error) {
+                  tempDb.close();
+                  console.error('Error during TOTP verification:', error);
+                  resolve({ success: false, error: 'Verification error' });
+                }
+              });
+            }
+          );
+        });
+      } catch (error) {
+        console.error('TOTP verification error:', error);
+        resolve({ success: false, error: 'TOTP verification failed' });
+      }
+    });
+  }
+
+  // Initialize the database after successful TOTP authentication
+  initializeAfterTOTP() {
+    return new Promise((resolve, reject) => {
+      try {
+        console.log('Initializing database after TOTP authentication');
+        
+        if (!this._tempTOTPSecret) {
+          reject(new Error('No TOTP secret available for initialization'));
+          return;
+        }
+        
+        // Open the database properly
+        this.db = new sqlite3.Database(this.dbPath, (err) => {
+          if (err) {
+            console.error('Error opening database after TOTP auth:', err.message);
+            reject(err);
+            return;
+          }
+          
+          console.log('Database opened successfully after TOTP authentication');
+          
+          // Initialize with minimal setup - just enough to use the database
+          // We don't set a masterKey because we don't have the password,
+          // but we can still query data without encrypting/decrypting
+          
+          // Mark the database as TOTP-authenticated so we know not to try encrypting/decrypting
+          this._totpAuthenticated = true;
+          
+          // Clear the temporary TOTP secret
+          delete this._tempTOTPSecret;
+          
+          resolve(true);
+        });
+      } catch (error) {
+        console.error('Error during post-TOTP initialization:', error);
+        reject(error);
+      }
+    });
+  }
 }
 
 module.exports = new Database();

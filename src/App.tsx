@@ -41,6 +41,7 @@ const AppContent = () => {
     message: '',
     severity: 'info' as 'info' | 'error' | 'success' | 'warning'
   });
+  const [twoFactorCompletedForSession, setTwoFactorCompletedForSession] = useState(false);
 
   // Check if database exists on load
   useEffect(() => {
@@ -80,7 +81,8 @@ const AppContent = () => {
     }
   }, []);
 
-  const handleLogin = async (credential: string) => {
+  // Update the handleLogin method to accept both password and TOTP code
+  const handleLogin = async (credential: string, totpCode?: string) => {
     try {
       setIsLoading(true);
       
@@ -94,12 +96,44 @@ const AppContent = () => {
         return;
       }
       
-      // First attempt to authenticate with the credential
-      console.log('Authenticating...');
+      // Handle the two-step verification case
+      if (totpCode) {
+        console.log('Two-step verification: validating password and TOTP code');
+        
+        // We already initialized the DB with the password in the LoginScreen component
+        // Now we need to verify the TOTP code
+        const isValid = await AccountService.verifyTOTPCode(totpCode);
+        
+        if (isValid) {
+          console.log('TOTP verification successful for two-step auth');
+          setIsAuthenticated(true);
+          // Mark that 2FA has been completed for this session
+          setTwoFactorCompletedForSession(true);
+        } else {
+          console.log('Invalid TOTP code in two-step verification');
+          setNotification({
+            open: true,
+            message: 'Invalid verification code',
+            severity: 'error'
+          });
+        }
+        
+        setIsLoading(false);
+        return;
+      }
+      
+      // Handle regular authentication (single factor)
+      console.log('Authenticating with single factor...');
       const authResult = await AccountService.authenticate(credential);
       
       if (authResult.success) {
         console.log(`Authentication successful using ${authResult.method}`);
+        
+        // If this is a TOTP auth, mark 2FA as completed
+        if (authResult.method === 'totp') {
+          setTwoFactorCompletedForSession(true);
+        }
+        
         setIsAuthenticated(true);
       } else {
         // If the new authentication method fails, try the legacy initialization method
@@ -189,6 +223,7 @@ const AppContent = () => {
 
   const handleLogout = () => {
     setIsAuthenticated(false);
+    // Do not reset twoFactorCompletedForSession here to remember it for the session
   };
 
   const handleCloseNotification = () => {
@@ -235,6 +270,7 @@ const AppContent = () => {
             onLogin={handleLogin} 
             isLoading={isLoading} 
             onForgotPassword={() => setShowPasswordRecovery(true)}
+            twoFactorCompletedForSession={twoFactorCompletedForSession}
           />
         ) : (
           <DatabaseSetupScreen 

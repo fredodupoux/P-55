@@ -36,6 +36,25 @@ export class AccountService {
     }
   }
 
+  // Check if TOTP is enabled without requiring full database initialization
+  static async checkTOTPEnabled(): Promise<boolean> {
+    if (!window.api) {
+      console.error('Electron API not available - cannot check TOTP status');
+      return false;
+    }
+
+    try {
+      console.log('Checking TOTP status without requiring initialization...');
+      const result = await window.api.invoke('check-totp-enabled', null);
+      console.log('TOTP status check result:', result);
+      
+      return result.success && result.enabled;
+    } catch (error) {
+      console.error('Failed to check TOTP status:', error);
+      return false;
+    }
+  }
+
   // Initialize the database with the master password
   static async initialize(password: string): Promise<boolean> {
     if (!window.api) {

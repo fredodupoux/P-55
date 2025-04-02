@@ -56,6 +56,7 @@ contextBridge.exposeInMainWorld(
         // Add new TOTP channels
         'authenticate',
         'get-totp-settings',
+        'check-totp-enabled',
         'enable-totp',
         'disable-totp',
         'verify-totp'
