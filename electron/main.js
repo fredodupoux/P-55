@@ -37,6 +37,12 @@ let lastError = {
 let authTimeoutId = null;
 const AUTH_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
+// Track zoom level
+let currentZoomFactor = 1.0;
+const ZOOM_INCREMENT = 0.1;
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 2.0;
+
 // Save original console methods before overriding
 const originalConsole = {
   log: console.log,
@@ -146,6 +152,9 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js')
     }
   });
+
+  // Set window to maximize by default for full screen interface
+  mainWindow.maximize();
 
   // Load the index.html from React dev server or the built file
   const startUrl = isDev 
@@ -740,6 +749,41 @@ ipcMain.handle('verify-totp', async (event, token) => {
     console.error('Failed to verify TOTP code:', error);
     return { success: false, error: error.message };
   }
+});
+
+// Add IPC handlers for zoom functionality
+ipcMain.handle('zoom-in', () => {
+  try {
+    if (mainWindow && currentZoomFactor < MAX_ZOOM) {
+      currentZoomFactor = Math.min(currentZoomFactor + ZOOM_INCREMENT, MAX_ZOOM);
+      mainWindow.webContents.setZoomFactor(currentZoomFactor);
+      writeToLog('info', `Zoom in: new factor ${currentZoomFactor}`);
+      return { success: true, zoomFactor: currentZoomFactor };
+    }
+    return { success: false, error: 'Maximum zoom level reached' };
+  } catch (error) {
+    writeToLog('error', 'Failed to zoom in', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('zoom-out', () => {
+  try {
+    if (mainWindow && currentZoomFactor > MIN_ZOOM) {
+      currentZoomFactor = Math.max(currentZoomFactor - ZOOM_INCREMENT, MIN_ZOOM);
+      mainWindow.webContents.setZoomFactor(currentZoomFactor);
+      writeToLog('info', `Zoom out: new factor ${currentZoomFactor}`);
+      return { success: true, zoomFactor: currentZoomFactor };
+    }
+    return { success: false, error: 'Minimum zoom level reached' };
+  } catch (error) {
+    writeToLog('error', 'Failed to zoom out', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('get-zoom-level', () => {
+  return { success: true, zoomFactor: currentZoomFactor };
 });
 
 // Function to start auto-lock timeout

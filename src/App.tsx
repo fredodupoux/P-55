@@ -1,13 +1,15 @@
-import { Box, Container, Snackbar } from '@mui/material';
+import { Box, CssBaseline, Snackbar } from '@mui/material';
 import Alert from '@mui/material/Alert';
+import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import { useEffect, useState } from 'react';
 import './App.css';
 import DatabaseSetupScreen from './components/DatabaseSetupScreen';
 import LoginScreen from './components/LoginScreen';
 import MainInterface from './components/MainInterface';
 import PasswordRecoveryDialog from './components/PasswordRecoveryDialog';
-import { ThemeProvider as CustomThemeProvider } from './context/ThemeContext';
+import { ThemeContext } from './context/ThemeContext';
 import AccountService from './services/AccountService';
+import { createTheme } from './theme/muiTheme';
 import './types/ElectronAPI'; // Import for type augmentation
 import { SecurityQuestion } from './types/SecurityQuestion';
 
@@ -25,11 +27,13 @@ const securityQuestions: SecurityQuestion[] = [
   { id: 10, question: "What is the name of your favorite movie?" }
 ];
 
-// Wrap the main app content with theme providers
-const AppContent = () => {
+// We don't need to redeclare Window interface here since it's in ElectronAPI.ts
+
+function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isDatabaseSetup, setIsDatabaseSetup] = useState<boolean | null>(null);
+  const [themeMode, setThemeMode] = useState<'light' | 'dark'>('light');
   const [isLoading, setIsLoading] = useState(true);
-  const [databaseExists, setDatabaseExists] = useState<boolean | null>(null);
   const [showPasswordRecovery, setShowPasswordRecovery] = useState(false);
   const [notification, setNotification] = useState({
     open: false,
@@ -37,12 +41,25 @@ const AppContent = () => {
     severity: 'info' as 'info' | 'error' | 'success' | 'warning'
   });
 
-  // Check if database exists on component mount
+  // Check if dark mode is preferred
   useEffect(() => {
-    const checkDatabase = async () => {
+    const savedTheme = localStorage.getItem('themeMode');
+    if (savedTheme) {
+      setThemeMode(savedTheme as 'light' | 'dark');
+    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      setThemeMode('dark');
+    }
+    
+    // Add theme class to document for CSS variables
+    document.documentElement.dataset.theme = themeMode;
+  }, [themeMode]);
+
+  // Check if database exists on load
+  useEffect(() => {
+    const checkDatabaseExists = async () => {
       try {
         const exists = await AccountService.databaseExists();
-        setDatabaseExists(exists);
+        setIsDatabaseSetup(exists);
       } catch (error) {
         console.error('Error checking database:', error);
         setNotification({
@@ -50,12 +67,13 @@ const AppContent = () => {
           message: 'Failed to check if database exists',
           severity: 'error'
         });
+        setIsDatabaseSetup(false);
       } finally {
         setIsLoading(false);
       }
     };
     
-    checkDatabase();
+    checkDatabaseExists();
   }, []);
 
   // Handle auto-lock from Electron main process
@@ -164,7 +182,7 @@ const AppContent = () => {
       await handleLogin(password);
       
       // Update the database exists state
-      setDatabaseExists(true);
+      setIsDatabaseSetup(true);
       
       setNotification({
         open: true,
@@ -200,64 +218,88 @@ const AppContent = () => {
     });
   };
 
-  if (isLoading && databaseExists === null) {
+  const toggleTheme = () => {
+    const newTheme = themeMode === 'light' ? 'dark' : 'light';
+    setThemeMode(newTheme);
+    localStorage.setItem('themeMode', newTheme);
+    document.documentElement.dataset.theme = newTheme;
+  };
+
+  // Create theme based on the selected mode
+  const theme = createTheme(themeMode);
+
+  // Show loading state while checking if database is set up
+  if (isLoading && isDatabaseSetup === null) {
     return (
-      <Container maxWidth="lg" className="app-container">
-        <Box sx={{ my: 4, textAlign: 'center' }}>
-          Loading...
-        </Box>
-      </Container>
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          height: '100vh',
+          width: '100vw',
+          backgroundColor: theme.palette.background.default
+        }}
+      >
+        Loading...
+      </Box>
     );
   }
 
+  // Create a custom theme context value
+  const themeContextValue = {
+    mode: themeMode as 'light' | 'dark' | 'system',
+    isDarkMode: themeMode === 'dark',
+    setMode: (mode: 'light' | 'dark' | 'system') => {
+      setThemeMode(mode === 'system' ? 
+        (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : 
+        mode as 'light' | 'dark');
+    }
+  };
+
   return (
-    <Container maxWidth="lg" className="app-container">
-      <Box sx={{ my: 4 }}>
-        {isAuthenticated ? (
-          <MainInterface onLogout={handleLogout} />
-        ) : databaseExists ? (
-          <LoginScreen 
-            onLogin={handleLogin} 
-            isLoading={isLoading} 
-            onForgotPassword={() => setShowPasswordRecovery(true)}
-          />
-        ) : (
-          <DatabaseSetupScreen 
-            onSetupComplete={handleDatabaseSetup}
+    <ThemeContext.Provider value={themeContextValue}>
+      <MuiThemeProvider theme={theme}>
+        <CssBaseline />
+        <Box className="App" sx={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
+          {isAuthenticated ? (
+            <MainInterface onLogout={handleLogout} />
+          ) : isDatabaseSetup ? (
+            <LoginScreen 
+              onLogin={handleLogin} 
+              isLoading={isLoading} 
+              onForgotPassword={() => setShowPasswordRecovery(true)}
+            />
+          ) : (
+            <DatabaseSetupScreen 
+              onSetupComplete={handleDatabaseSetup}
+              securityQuestions={securityQuestions}
+            />
+          )}
+          
+          <Snackbar
+            open={notification.open}
+            autoHideDuration={6000}
+            onClose={handleCloseNotification}
+          >
+            <Alert
+              onClose={handleCloseNotification}
+              severity={notification.severity}
+              sx={{ width: '100%' }}
+            >
+              {notification.message}
+            </Alert>
+          </Snackbar>
+          
+          <PasswordRecoveryDialog
+            open={showPasswordRecovery}
+            onClose={() => setShowPasswordRecovery(false)}
+            onSuccess={handlePasswordRecoverySuccess}
             securityQuestions={securityQuestions}
           />
-        )}
-        
-        <Snackbar
-          open={notification.open}
-          autoHideDuration={6000}
-          onClose={handleCloseNotification}
-        >
-          <Alert
-            onClose={handleCloseNotification}
-            severity={notification.severity}
-            sx={{ width: '100%' }}
-          >
-            {notification.message}
-          </Alert>
-        </Snackbar>
-        
-        <PasswordRecoveryDialog
-          open={showPasswordRecovery}
-          onClose={() => setShowPasswordRecovery(false)}
-          onSuccess={handlePasswordRecoverySuccess}
-          securityQuestions={securityQuestions}
-        />
-      </Box>
-    </Container>
-  );
-};
-
-function App() {
-  return (
-    <CustomThemeProvider>
-      <AppContent />
-    </CustomThemeProvider>
+        </Box>
+      </MuiThemeProvider>
+    </ThemeContext.Provider>
   );
 }
 

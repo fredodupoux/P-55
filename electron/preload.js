@@ -67,3 +67,56 @@ contextBridge.exposeInMainWorld(
     }
   }
 );
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  // Authentication functions
+  initializeDatabase: (password) => ipcRenderer.invoke('initialize-db', password),
+  authenticate: (credential) => ipcRenderer.invoke('authenticate', credential),
+  verifyPassword: (password) => ipcRenderer.invoke('verify-password', password),
+  getLogs: () => ipcRenderer.invoke('get-logs'),
+  showDatabaseFolder: () => ipcRenderer.invoke('show-database-folder'),
+  getDatabasePath: () => ipcRenderer.invoke('get-database-path'),
+  getLastError: () => ipcRenderer.invoke('get-last-error'),
+  
+  // Account management functions
+  getAccounts: () => ipcRenderer.invoke('get-accounts'),
+  addAccount: (account) => ipcRenderer.invoke('add-account', account),
+  updateAccount: (account) => ipcRenderer.invoke('update-account', account),
+  deleteAccount: (id) => ipcRenderer.invoke('delete-account', id),
+  
+  // Database management functions
+  databaseExists: () => ipcRenderer.invoke('database-exists'),
+  setupDatabase: (data) => ipcRenderer.invoke('setup-database', data),
+  createBackup: () => ipcRenderer.invoke('create-backup'),
+  changeMasterPassword: (data) => ipcRenderer.invoke('change-master-password', data),
+  
+  // Security question functions
+  getSecurityQuestions: () => ipcRenderer.invoke('get-security-questions'),
+  verifySecurityAnswers: (answers) => ipcRenderer.invoke('verify-security-answers', answers),
+  resetPassword: (data) => ipcRenderer.invoke('reset-password', data),
+  
+  // TOTP functions
+  getTOTPSettings: () => ipcRenderer.invoke('get-totp-settings'),
+  enableTOTP: () => ipcRenderer.invoke('enable-totp'),
+  disableTOTP: () => ipcRenderer.invoke('disable-totp'),
+  verifyTOTP: (token) => ipcRenderer.invoke('verify-totp', token),
+  
+  // Zoom functions
+  zoomIn: () => ipcRenderer.invoke('zoom-in'),
+  zoomOut: () => ipcRenderer.invoke('zoom-out'),
+  getZoomLevel: () => ipcRenderer.invoke('get-zoom-level'),
+  
+  // Event listeners
+  onLockApplication: (callback) => {
+    ipcRenderer.on('lock-application', callback);
+    return () => ipcRenderer.removeListener('lock-application', callback);
+  },
+  onUpdateAvailable: (callback) => {
+    ipcRenderer.on('update-available', callback);
+    return () => ipcRenderer.removeListener('update-available', callback);
+  },
+  onUpdateReady: (callback) => {
+    ipcRenderer.on('update-ready', callback);
+    return () => ipcRenderer.removeListener('update-ready', callback);
+  }
+});

@@ -4,9 +4,54 @@ export interface ElectronAPI {
   invoke: (channel: string, data: any) => Promise<any>;
 }
 
+export interface ElectronDirectAPI {
+  // Authentication functions
+  initializeDatabase: (password: string) => Promise<any>;
+  authenticate: (credential: string) => Promise<any>;
+  verifyPassword: (password: string) => Promise<any>;
+  getLogs: () => Promise<any>;
+  showDatabaseFolder: () => Promise<any>;
+  getDatabasePath: () => Promise<any>;
+  getLastError: () => Promise<any>;
+  
+  // Account management functions
+  getAccounts: () => Promise<any>;
+  addAccount: (account: any) => Promise<any>;
+  updateAccount: (account: any) => Promise<any>;
+  deleteAccount: (id: number) => Promise<any>;
+  
+  // Database management functions
+  databaseExists: () => Promise<any>;
+  setupDatabase: (data: any) => Promise<any>;
+  createBackup: () => Promise<any>;
+  changeMasterPassword: (data: any) => Promise<any>;
+  
+  // Security question functions
+  getSecurityQuestions: () => Promise<any>;
+  verifySecurityAnswers: (answers: any[]) => Promise<any>;
+  resetPassword: (data: any) => Promise<any>;
+  
+  // TOTP functions
+  getTOTPSettings: () => Promise<any>;
+  enableTOTP: () => Promise<any>;
+  disableTOTP: () => Promise<any>;
+  verifyTOTP: (token: string) => Promise<any>;
+  
+  // Zoom functions
+  zoomIn: () => Promise<any>;
+  zoomOut: () => Promise<any>;
+  getZoomLevel: () => Promise<any>;
+  
+  // Event listeners
+  onLockApplication: (callback: () => void) => (() => void);
+  onUpdateAvailable: (callback: () => void) => (() => void);
+  onUpdateReady: (callback: () => void) => (() => void);
+}
+
 // Extend the global Window interface
 declare global {
   interface Window {
     api?: ElectronAPI;
+    electronAPI?: ElectronDirectAPI;
   }
 }

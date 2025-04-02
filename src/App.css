@@ -31,12 +31,21 @@
   --info-color: #64b5f6;
 }
 
-body {
+/* Base styles */
+html, body, #root {
+  height: 100%;
+  width: 100%;
   margin: 0;
   padding: 0;
+  overflow: hidden;
+}
+
+body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   background-color: var(--background-color);
   color: var(--text-primary);
   transition: all 0.3s ease;
@@ -64,11 +73,35 @@ pre, code {
 /* App-specific styles */
 .App {
   text-align: center;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Password field styling */
 .password-field {
   font-family: 'Courier New', monospace;
+  position: relative;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: rgba(0, 0, 0, 0.54);
+}
+
+/* Form styles */
+.form-container {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.form-field {
+  margin-bottom: 20px;
 }
 
 /* Custom scrollbar for better visibility */
@@ -100,4 +133,50 @@ pre, code {
 
 .copy-notification {
   animation: copy-animation 1.5s ease-in-out;
+}
+
+/* Animation for protected content */
+.fade-in {
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Account list styles */
+.account-list {
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .form-container {
+    width: 100%;
+    padding: 0 16px;
+  }
+}
+
+/* Helper classes */
+.text-ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+/* Print styles - hide UI elements when printing */
+@media print {
+  .no-print {
+    display: none !important;
+  }
 }

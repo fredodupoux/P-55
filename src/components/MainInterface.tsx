@@ -4,23 +4,23 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import SearchIcon from '@mui/icons-material/Search';
 import SecurityIcon from '@mui/icons-material/Security';
 import {
-  AppBar,
-  Box,
-  Button,
-  Divider,
-  Grid,
-  IconButton,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  Menu,
-  MenuItem,
-  Paper,
-  Snackbar,
-  TextField,
-  Toolbar,
-  Typography
+    AppBar,
+    Box,
+    Button,
+    Divider,
+    Grid,
+    IconButton,
+    List,
+    ListItem,
+    ListItemButton,
+    ListItemText,
+    Menu,
+    MenuItem,
+    Paper,
+    Snackbar,
+    TextField,
+    Toolbar,
+    Typography
 } from '@mui/material';
 import Alert from '@mui/material/Alert';
 import React, { useEffect, useState } from 'react';
@@ -31,6 +31,7 @@ import AccountForm from './AccountForm';
 import PasswordChangeDialog from './PasswordChangeDialog';
 import ThemeToggle from './ThemeToggle';
 import TOTPSetupDialog from './TOTPSetupDialog';
+import ZoomControls from './ZoomControls';
 
 interface MainInterfaceProps {
   onLogout: () => void;
@@ -216,7 +217,13 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
   };
 
   return (
-    <Box sx={{ flexGrow: 1 }}>
+    <Box sx={{ 
+      flexGrow: 1, 
+      height: '100vh', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      overflow: 'hidden'
+    }}>
       <AppBar position="static" color="primary">
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
@@ -265,116 +272,127 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
           </Menu>
         </Toolbar>
       </AppBar>
-      <Grid container spacing={2} sx={{ mt: 2 }}>
-        {/* Left Panel - Account List */}
-        <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, height: '75vh', overflow: 'auto' }}>
-            <Box sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
-              <TextField
-                placeholder="Search accounts"
-                variant="outlined"
-                size="small"
-                fullWidth
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
-                }}
-              />
-              <IconButton 
-                color="primary" 
-                sx={{ ml: 1 }}
-                aria-label="Add new account"
-                onClick={handleAddAccount}
-              >
-                <AddIcon />
-              </IconButton>
-            </Box>
-            
-            <Divider sx={{ my: 2 }} />
-            
-            <List>
-              {isLoading ? (
-                <Typography align="center" color="text.secondary">
-                  Loading accounts...
-                </Typography>
-              ) : filteredAccounts.length > 0 ? (
-                filteredAccounts.map((account) => (
-                  <ListItem 
-                    key={account.id} 
-                    disablePadding
-                    divider
-                  >
-                    <ListItemButton
-                      selected={selectedAccount === account.id}
-                      onClick={() => {
-                        setSelectedAccount(account.id);
-                        setIsAddingAccount(false);
-                      }}
-                      sx={{ borderRadius: 1 }}
-                    >
-                      <ListItemText
-                        primary={account.name}
-                        secondary={account.username}
-                        primaryTypographyProps={{ 
-                          fontWeight: selectedAccount === account.id ? 'bold' : 'normal' 
-                        }}
-                      />
-                    </ListItemButton>
-                  </ListItem>
-                ))
-              ) : (
-                <Typography align="center" color="text.secondary">
-                  {searchTerm ? 'No matching accounts found' : 'No accounts found'}
-                </Typography>
-              )}
-            </List>
-          </Paper>
-        </Grid>
-        
-        {/* Right Panel - Account Details or Add Form */}
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 2, height: '75vh', overflow: 'auto' }}>
-            {isAddingAccount ? (
-              <AccountForm 
-                onSave={handleSaveNewAccount}
-                onCancel={handleCancel}
-              />
-            ) : selectedAccount ? (
-              <AccountDetailPanel 
-                account={accounts.find(a => a.id === selectedAccount)!}
-                onSave={handleUpdateAccount}
-                onDelete={handleDeleteAccount}
-              />
-            ) : (
-              <Box 
-                sx={{ 
-                  display: 'flex', 
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '100%' 
-                }}
-              >
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  {accounts.length > 0 
-                    ? 'Select an account to view details' 
-                    : 'No accounts yet'}
-                </Typography>
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  size="large"
-                  sx={{ mt: 2 }}
+      
+      {/* Main content area - takes up all remaining space */}
+      <Box sx={{ flexGrow: 1, overflow: 'hidden', p: 2 }}>
+        <Grid container spacing={2} sx={{ height: '100%' }}>
+          {/* Left Panel - Account List */}
+          <Grid item xs={12} md={4} sx={{ height: '100%' }}>
+            <Paper sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Box sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+                <TextField
+                  placeholder="Search accounts"
+                  variant="outlined"
+                  size="small"
+                  fullWidth
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  InputProps={{
+                    startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+                  }}
+                />
+                <IconButton 
+                  color="primary" 
+                  sx={{ ml: 1 }}
+                  aria-label="Add new account"
                   onClick={handleAddAccount}
                 >
-                  Add New Account
-                </Button>
+                  <AddIcon />
+                </IconButton>
               </Box>
-            )}
-          </Paper>
+              
+              <Divider sx={{ my: 2 }} />
+              
+              <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+                <List>
+                  {isLoading ? (
+                    <Typography align="center" color="text.secondary">
+                      Loading accounts...
+                    </Typography>
+                  ) : filteredAccounts.length > 0 ? (
+                    filteredAccounts.map((account) => (
+                      <ListItem 
+                        key={account.id} 
+                        disablePadding
+                        divider
+                      >
+                        <ListItemButton
+                          selected={selectedAccount === account.id}
+                          onClick={() => {
+                            setSelectedAccount(account.id);
+                            setIsAddingAccount(false);
+                          }}
+                          sx={{ borderRadius: 1 }}
+                        >
+                          <ListItemText
+                            primary={account.name}
+                            secondary={account.username}
+                            primaryTypographyProps={{ 
+                              fontWeight: selectedAccount === account.id ? 'bold' : 'normal' 
+                            }}
+                          />
+                        </ListItemButton>
+                      </ListItem>
+                    ))
+                  ) : (
+                    <Typography align="center" color="text.secondary">
+                      {searchTerm ? 'No matching accounts found' : 'No accounts found'}
+                    </Typography>
+                  )}
+                </List>
+              </Box>
+            </Paper>
+          </Grid>
+          
+          {/* Right Panel - Account Details or Add Form */}
+          <Grid item xs={12} md={8} sx={{ height: '100%' }}>
+            <Paper sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+                {isAddingAccount ? (
+                  <AccountForm 
+                    onSave={handleSaveNewAccount}
+                    onCancel={handleCancel}
+                  />
+                ) : selectedAccount ? (
+                  <AccountDetailPanel 
+                    account={accounts.find(a => a.id === selectedAccount)!}
+                    onSave={handleUpdateAccount}
+                    onDelete={handleDeleteAccount}
+                  />
+                ) : (
+                  <Box 
+                    sx={{ 
+                      display: 'flex', 
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '100%' 
+                    }}
+                  >
+                    <Typography variant="h6" color="text.secondary" gutterBottom>
+                      {accounts.length > 0 
+                        ? 'Select an account to view details' 
+                        : 'No accounts yet'}
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      startIcon={<AddIcon />}
+                      size="large"
+                      sx={{ mt: 2 }}
+                      onClick={handleAddAccount}
+                    >
+                      Add New Account
+                    </Button>
+                  </Box>
+                )}
+              </Box>
+            </Paper>
+          </Grid>
         </Grid>
-      </Grid>
+      </Box>
+      
+      {/* Zoom Controls */}
+      <ZoomControls />
       
       {/* Notification Snackbar */}
       <Snackbar 
