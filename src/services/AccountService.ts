@@ -28,6 +28,12 @@ export interface AvailableBrowsers {
   opera: boolean;
 }
 
+// Interface for browser import options
+export interface BrowserImportOptions {
+  handleDuplicates: 'skip' | 'overwrite' | 'keep';
+  createCategory?: boolean;
+}
+
 // Re-export BrowserImportResult type
 export type { BrowserImportResult };
 
@@ -664,7 +670,10 @@ export class AccountService {
   }
 
   // Import passwords from a browser
-  static async importFromBrowser(browserType: string): Promise<BrowserImportResult> {
+  static async importFromBrowser(
+    browserType: string, 
+    options?: { handleDuplicates?: 'skip' | 'overwrite' | 'keep' }
+  ): Promise<BrowserImportResult> {
     if (!window.api) {
       console.error('Electron API not available - cannot import passwords');
       return { 
@@ -673,10 +682,13 @@ export class AccountService {
         error: 'Electron API not available'
       };
     }
-
     try {
       console.log(`Importing passwords from ${browserType}...`);
-      const result = await window.api.invoke('import-from-browser', { browserType });
+      // Pass options to the invoke call, defaulting handleDuplicates to 'skip' if not provided
+      const result = await window.api.invoke('import-from-browser', { 
+        browserType,
+        handleDuplicates: options?.handleDuplicates || 'skip'
+      });
       console.log('Import result:', result);
       
       if (result.success) {

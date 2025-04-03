@@ -1,290 +1,244 @@
 import {
+    Alert,
     Box,
     Button,
+    Checkbox,
     CircularProgress,
     Dialog,
     DialogActions,
     DialogContent,
     DialogTitle,
-    Divider,
-    List,
-    ListItem,
-    ListItemButton,
-    ListItemIcon,
-    ListItemText,
+    FormControl,
+    FormControlLabel,
+    FormGroup,
+    FormHelperText,
+    InputLabel,
+    MenuItem,
+    Radio,
+    RadioGroup,
+    Select,
     Typography
 } from '@mui/material';
 import React, { useEffect, useState } from 'react';
-// Replace the missing browser icons with appropriate alternatives
-import LanguageIcon from '@mui/icons-material/Language';
-import WebIcon from '@mui/icons-material/Public';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
-import PublicIcon from '@mui/icons-material/Web';
 import AccountService, { AvailableBrowsers, BrowserImportResult } from '../services/AccountService';
-
-// Map browser types to icons
-const getBrowserIcon = (browserType: string) => {
-  switch (browserType.toLowerCase()) {
-    case 'chrome':
-      return <PublicIcon />; // Alternative for Chrome
-    case 'firefox':
-      return <WebIcon />; // Alternative for Firefox
-    default:
-      return <LanguageIcon />;
-  }
-};
-
-// Map browser types to display names
-const getBrowserDisplayName = (browserType: string) => {
-  const browserMap: { [key: string]: string } = {
-    'chrome': 'Google Chrome',
-    'firefox': 'Mozilla Firefox',
-    'safari': 'Apple Safari',
-    'edge': 'Microsoft Edge',
-    'brave': 'Brave Browser',
-    'opera': 'Opera'
-  };
-  
-  return browserMap[browserType] || browserType;
-};
 
 interface ImportDialogProps {
   open: boolean;
   onClose: () => void;
-  onSuccess: (importedCount: number) => void;
+  onSuccess: (result: BrowserImportResult) => void;
 }
 
 const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose, onSuccess }) => {
-  const [availableBrowsers, setAvailableBrowsers] = useState<AvailableBrowsers | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [importing, setImporting] = useState<boolean>(false);
-  const [importResult, setImportResult] = useState<BrowserImportResult | null>(null);
+  // Available browsers state
+  const [availableBrowsers, setAvailableBrowsers] = useState<AvailableBrowsers>({
+    chrome: false,
+    firefox: false,
+    safari: false,
+    edge: false,
+    brave: false,
+    opera: false
+  });
+  
+  // Selected browser
+  const [selectedBrowser, setSelectedBrowser] = useState<string>('');
+  
+  // Duplicate handling option
+  const [duplicateHandling, setDuplicateHandling] = useState<'skip' | 'overwrite' | 'keep'>('skip');
+  
+  // Create category option
+  const [createCategory, setCreateCategory] = useState<boolean>(true);
+  
+  // Loading state
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  
+  // Error message
   const [error, setError] = useState<string | null>(null);
-
-  // Fetch available browsers when dialog opens
+  
+  // Check which browsers are available on component mount
   useEffect(() => {
+    const checkAvailableBrowsers = async () => {
+      setIsLoading(true);
+      try {
+        const browsers = await AccountService.getAvailableBrowsers();
+        console.log('Available browsers:', browsers);
+        setAvailableBrowsers(browsers);
+        
+        // Auto-select the first available browser
+        for (const [browser, available] of Object.entries(browsers)) {
+          if (available) {
+            setSelectedBrowser(browser);
+            break;
+          }
+        }
+      } catch (err) {
+        console.error('Error checking available browsers:', err);
+        setError('Failed to detect available browsers.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
     if (open) {
-      detectBrowsers();
-    } else {
-      // Reset state when dialog closes
-      setImportResult(null);
-      setError(null);
-      setImporting(false);
+      checkAvailableBrowsers();
     }
   }, [open]);
-
-  // Detect available browsers
-  const detectBrowsers = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const browsers = await AccountService.getAvailableBrowsers();
-      setAvailableBrowsers(browsers);
-    } catch (err) {
-      console.error('Failed to detect browsers:', err);
-      setError('Failed to detect installed browsers');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle browser selection for import
-  const handleBrowserImport = async (browserType: string) => {
-    setImporting(true);
-    setError(null);
-    setImportResult(null);
-    
-    try {
-      const result = await AccountService.importFromBrowser(browserType);
-      setImportResult(result);
-      
-      if (result.success && result.imported > 0) {
-        onSuccess(result.imported);
-      }
-    } catch (err) {
-      console.error(`Failed to import from ${browserType}:`, err);
-      setError(`Import failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    } finally {
-      setImporting(false);
-    }
-  };
-
-  // Gets list of detected browsers to display
-  const getDetectedBrowsers = () => {
-    if (!availableBrowsers) return [];
-    
-    return Object.entries(availableBrowsers)
-      .filter(([_, isAvailable]) => isAvailable)
-      .map(([browserType]) => browserType);
-  };
-
-  // Close handler with confirmation if needed
-  const handleClose = () => {
-    // If in the middle of an import, confirm first
-    if (importing) {
-      if (window.confirm('An import is in progress. Are you sure you want to cancel?')) {
-        onClose();
-      }
+  
+  const handleImport = async () => {
+    if (!selectedBrowser) {
+      setError('Please select a browser to import from');
       return;
     }
     
-    onClose();
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const options = {
+        handleDuplicates: duplicateHandling,
+        createCategory
+      };
+      
+      const result = await AccountService.importFromBrowser(selectedBrowser, options);
+      
+      if (result.success) {
+        onSuccess(result);
+        onClose();
+      } else {
+        setError(result.error || 'Import failed');
+      }
+    } catch (err) {
+      console.error('Error during import:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error during import');
+    } finally {
+      setIsLoading(false);
+    }
   };
-
-  // Render content based on state
-  const renderContent = () => {
-    if (loading) {
-      return (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
-          <CircularProgress />
-        </Box>
-      );
+  
+  const handleClose = () => {
+    if (!isLoading) {
+      onClose();
     }
-
-    if (importing) {
-      return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
-          <CircularProgress sx={{ mb: 2 }} />
-          <Typography>Importing passwords, please wait...</Typography>
-        </Box>
-      );
-    }
-
-    if (importResult) {
-      return (
-        <Box sx={{ py: 2 }}>
-          {importResult.success ? (
-            <Box>
-              <Typography variant="h6" color="success.main" gutterBottom>
-                Import Successful
-              </Typography>
-              <Typography>
-                Successfully imported {importResult.imported} passwords.
-              </Typography>
-              
-              {(importResult.duplicates && importResult.duplicates > 0) && (
-                <Typography sx={{ mt: 1 }}>
-                  Skipped {importResult.duplicates} duplicate entries.
-                </Typography>
-              )}
-              
-              {(importResult.errors && importResult.errors > 0) && (
-                <Typography sx={{ mt: 1 }} color="warning.main">
-                  Encountered {importResult.errors} errors during import.
-                </Typography>
-              )}
-            </Box>
-          ) : (
-            <Typography color="error.main">
-              Import failed: {importResult.error}
-            </Typography>
-          )}
-        </Box>
-      );
-    }
-
-    if (error) {
-      return (
-        <Box sx={{ py: 2 }}>
-          <Typography color="error.main">{error}</Typography>
-        </Box>
-      );
-    }
-
-    const detectedBrowsers = getDetectedBrowsers();
-
-    return (
-      <Box>
-        <Typography gutterBottom>
-          To import passwords, first export your passwords from your browser to a CSV file, 
-          then select your browser below and choose the exported file.
-        </Typography>
-        
-        {detectedBrowsers.length > 0 ? (
-          <List>
-            {detectedBrowsers.map((browserType) => (
-              <ListItem key={browserType} disablePadding>
-                <ListItemButton 
-                  onClick={() => handleBrowserImport(browserType)}
-                  disabled={importing}
-                >
-                  <ListItemIcon>
-                    {getBrowserIcon(browserType)}
-                  </ListItemIcon>
-                  <ListItemText primary={getBrowserDisplayName(browserType)} />
-                </ListItemButton>
-              </ListItem>
-            ))}
-            
-            <Divider sx={{ my: 2 }} />
-            
-            <ListItem disablePadding>
-              <ListItemButton 
-                onClick={() => handleBrowserImport('csv')}
-                disabled={importing}
-              >
-                <ListItemIcon>
-                  <UploadFileIcon />
-                </ListItemIcon>
-                <ListItemText primary="Import from CSV file" secondary="Any password manager export" />
-              </ListItemButton>
-            </ListItem>
-          </List>
-        ) : (
-          <Box sx={{ py: 2 }}>
-            <Typography color="text.secondary" gutterBottom>
-              No browsers were automatically detected on your system.
-            </Typography>
-            
-            <Button 
-              variant="contained" 
-              startIcon={<UploadFileIcon />}
-              onClick={() => handleBrowserImport('csv')}
-              sx={{ mt: 2 }}
-            >
-              Import from CSV file
-            </Button>
-          </Box>
-        )}
-      </Box>
-    );
   };
-
+  
+  // Format browser name for display
+  const formatBrowserName = (name: string): string => {
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  };
+  
+  // Count available browsers
+  const availableBrowserCount = Object.values(availableBrowsers).filter(Boolean).length;
+  
   return (
     <Dialog 
       open={open} 
       onClose={handleClose}
-      fullWidth
       maxWidth="sm"
+      fullWidth
     >
       <DialogTitle>Import Passwords</DialogTitle>
-      
       <DialogContent>
-        {renderContent()}
-      </DialogContent>
-      
-      <DialogActions>
-        <Button 
-          onClick={handleClose} 
-          color="primary"
-          disabled={importing}
-        >
-          {importResult ? 'Close' : 'Cancel'}
-        </Button>
-        
-        {importResult && (
-          <Button 
-            onClick={() => {
-              setImportResult(null);
-              setError(null);
-            }}
-            color="primary"
-            variant="contained"
-          >
-            Import More
-          </Button>
+        {isLoading && !selectedBrowser ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', my: 3 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <>
+            {availableBrowserCount === 0 ? (
+              <Alert severity="info" sx={{ mt: 2 }}>
+                No supported browsers detected on your system. Supported browsers: Chrome, Firefox, Safari, Edge, Brave, and Opera.
+              </Alert>
+            ) : (
+              <>
+                <Typography variant="body1" gutterBottom sx={{ mt: 1 }}>
+                  Import passwords from web browsers installed on your computer.
+                </Typography>
+                
+                <FormControl fullWidth margin="normal">
+                  <InputLabel id="browser-select-label">Select Browser</InputLabel>
+                  <Select
+                    labelId="browser-select-label"
+                    value={selectedBrowser}
+                    label="Select Browser"
+                    onChange={(e) => setSelectedBrowser(e.target.value)}
+                    disabled={isLoading}
+                  >
+                    {Object.entries(availableBrowsers).map(([browser, available]) => (
+                      available && (
+                        <MenuItem key={browser} value={browser}>
+                          {formatBrowserName(browser)}
+                        </MenuItem>
+                      )
+                    ))}
+                  </Select>
+                  <FormHelperText>
+                    Choose the browser to import passwords from
+                  </FormHelperText>
+                </FormControl>
+                
+                <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
+                  Duplicate Handling
+                </Typography>
+                
+                <RadioGroup
+                  value={duplicateHandling}
+                  onChange={(e) => setDuplicateHandling(e.target.value as 'skip' | 'overwrite' | 'keep')}
+                >
+                  <FormControlLabel 
+                    value="skip" 
+                    control={<Radio />} 
+                    label="Skip duplicate entries (recommended)" 
+                    disabled={isLoading}
+                  />
+                  <FormControlLabel 
+                    value="overwrite" 
+                    control={<Radio />} 
+                    label="Overwrite existing entries" 
+                    disabled={isLoading}
+                  />
+                  <FormControlLabel 
+                    value="keep" 
+                    control={<Radio />} 
+                    label="Keep both (create duplicates)" 
+                    disabled={isLoading}
+                  />
+                </RadioGroup>
+                
+                <FormGroup sx={{ mt: 2 }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={createCategory}
+                        onChange={(e) => setCreateCategory(e.target.checked)}
+                        disabled={isLoading}
+                      />
+                    }
+                    label="Create browser category for imported passwords"
+                  />
+                </FormGroup>
+              </>
+            )}
+            
+            {error && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {error}
+              </Alert>
+            )}
+          </>
         )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleClose} disabled={isLoading}>
+          Cancel
+        </Button>
+        <Button 
+          onClick={handleImport} 
+          variant="contained" 
+          color="primary" 
+          disabled={isLoading || !selectedBrowser || availableBrowserCount === 0}
+          startIcon={isLoading ? <CircularProgress size={20} /> : undefined}
+        >
+          {isLoading ? 'Importing...' : 'Import'}
+        </Button>
       </DialogActions>
     </Dialog>
   );

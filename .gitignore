@@ -21,6 +21,7 @@ yarn-error.log*
 *.psd
 Plan.md
 Security.md
+Db_Improvement.md
 # OS
 .DS_Store
 Thumbs.db

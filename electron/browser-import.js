@@ -232,9 +232,10 @@ async function getFirefoxProfiles(platform) {
  * @param {object} database The database instance
  * @param {object} dialog Electron dialog module
  * @param {object} window The main window instance
+ * @param {object} options Import options
  * @returns {Promise<Object>} Import result
  */
-async function importFromBrowser(browserType, database, dialog, window) {
+async function importFromBrowser(browserType, database, dialog, window, options = { handleDuplicates: 'skip', createCategory: true }) {
   try {
     let importedCount = 0;
     let result;
@@ -242,22 +243,22 @@ async function importFromBrowser(browserType, database, dialog, window) {
     // Different import logic based on browser type
     switch (browserType) {
       case 'chrome':
-        result = await importFromChrome(database, dialog, window);
+        result = await importFromChrome(database, dialog, window, options);
         break;
       case 'firefox':
-        result = await importFromFirefox(database, dialog, window);
+        result = await importFromFirefox(database, dialog, window, options);
         break;
       case 'edge':
-        result = await importFromEdge(database, dialog, window);
+        result = await importFromEdge(database, dialog, window, options);
         break;
       case 'brave':
-        result = await importFromBrave(database, dialog, window);
+        result = await importFromBrave(database, dialog, window, options);
         break;
       case 'safari':
-        result = await importFromSafari(database, dialog, window);
+        result = await importFromSafari(database, dialog, window, options);
         break;
       case 'opera':
-        result = await importFromOpera(database, dialog, window);
+        result = await importFromOpera(database, dialog, window, options);
         break;
       default:
         return { success: false, imported: 0, error: `Unsupported browser type: ${browserType}` };
@@ -265,15 +266,14 @@ async function importFromBrowser(browserType, database, dialog, window) {
     
     if (result && result.success) {
       importedCount = result.imported;
+      // Include all result fields in the return value
+      return { 
+        success: true, 
+        ...result
+      };
     } else {
       throw new Error(result?.error || `Failed to import from ${browserType}`);
     }
-    
-    return { 
-      success: true, 
-      imported: importedCount,
-      message: `Successfully imported ${importedCount} passwords from ${browserType}`
-    };
   } catch (error) {
     console.error(`Error importing from ${browserType}:`, error);
     return { 
@@ -289,9 +289,10 @@ async function importFromBrowser(browserType, database, dialog, window) {
  * @param {object} database The database instance
  * @param {object} dialog Electron dialog module
  * @param {object} window The main window instance
+ * @param {object} options Import options
  * @returns {Promise<Object>} Import result
  */
-async function importFromChrome(database, dialog, window) {
+async function importFromChrome(database, dialog, window, options = { handleDuplicates: 'skip', createCategory: true }) {
   try {
     // Chrome stores passwords in a SQLite database with encryption
     // For simplicity, we'll ask the user to export from Chrome and import the CSV
@@ -311,7 +312,7 @@ async function importFromChrome(database, dialog, window) {
       return { success: false, imported: 0, error: 'Import was canceled' };
     }
     
-    return importFromCSV(result.filePaths[0], database);
+    return importFromCSV(result.filePaths[0], database, options);
   } catch (error) {
     console.error('Error importing from Chrome:', error);
     return { success: false, imported: 0, error: error.message };
@@ -323,9 +324,10 @@ async function importFromChrome(database, dialog, window) {
  * @param {object} database The database instance
  * @param {object} dialog Electron dialog module
  * @param {object} window The main window instance
+ * @param {object} options Import options
  * @returns {Promise<Object>} Import result
  */
-async function importFromFirefox(database, dialog, window) {
+async function importFromFirefox(database, dialog, window, options = { handleDuplicates: 'skip', createCategory: true }) {
   try {
     // Firefox also requires export first
     const result = await dialog.showOpenDialog(window, {
@@ -344,7 +346,7 @@ async function importFromFirefox(database, dialog, window) {
       return { success: false, imported: 0, error: 'Import was canceled' };
     }
     
-    return importFromCSV(result.filePaths[0], database);
+    return importFromCSV(result.filePaths[0], database, options);
   } catch (error) {
     console.error('Error importing from Firefox:', error);
     return { success: false, imported: 0, error: error.message };
@@ -356,9 +358,10 @@ async function importFromFirefox(database, dialog, window) {
  * @param {object} database The database instance
  * @param {object} dialog Electron dialog module
  * @param {object} window The main window instance
+ * @param {object} options Import options
  * @returns {Promise<Object>} Import result
  */
-async function importFromEdge(database, dialog, window) {
+async function importFromEdge(database, dialog, window, options = { handleDuplicates: 'skip', createCategory: true }) {
   try {
     // Edge also uses Chromium's password system
     const result = await dialog.showOpenDialog(window, {
@@ -377,7 +380,7 @@ async function importFromEdge(database, dialog, window) {
       return { success: false, imported: 0, error: 'Import was canceled' };
     }
     
-    return importFromCSV(result.filePaths[0], database);
+    return importFromCSV(result.filePaths[0], database, options);
   } catch (error) {
     console.error('Error importing from Edge:', error);
     return { success: false, imported: 0, error: error.message };
@@ -389,9 +392,10 @@ async function importFromEdge(database, dialog, window) {
  * @param {object} database The database instance
  * @param {object} dialog Electron dialog module
  * @param {object} window The main window instance
+ * @param {object} options Import options
  * @returns {Promise<Object>} Import result
  */
-async function importFromBrave(database, dialog, window) {
+async function importFromBrave(database, dialog, window, options = { handleDuplicates: 'skip', createCategory: true }) {
   try {
     // Brave also uses Chromium's password system
     const result = await dialog.showOpenDialog(window, {
@@ -410,7 +414,7 @@ async function importFromBrave(database, dialog, window) {
       return { success: false, imported: 0, error: 'Import was canceled' };
     }
     
-    return importFromCSV(result.filePaths[0], database);
+    return importFromCSV(result.filePaths[0], database, options);
   } catch (error) {
     console.error('Error importing from Brave:', error);
     return { success: false, imported: 0, error: error.message };
@@ -422,9 +426,10 @@ async function importFromBrave(database, dialog, window) {
  * @param {object} database The database instance
  * @param {object} dialog Electron dialog module
  * @param {object} window The main window instance
+ * @param {object} options Import options
  * @returns {Promise<Object>} Import result
  */
-async function importFromSafari(database, dialog, window) {
+async function importFromSafari(database, dialog, window, options = { handleDuplicates: 'skip', createCategory: true }) {
   // For Safari, direct export isn't available, guide user to use Keychain Access
   await dialog.showMessageBox(window, {
     type: 'info',
@@ -450,7 +455,7 @@ async function importFromSafari(database, dialog, window) {
     return { success: false, imported: 0, error: 'Import was canceled' };
   }
   
-  return importFromCSV(result.filePaths[0], database);
+  return importFromCSV(result.filePaths[0], database, options);
 }
 
 /**
@@ -458,9 +463,10 @@ async function importFromSafari(database, dialog, window) {
  * @param {object} database The database instance
  * @param {object} dialog Electron dialog module
  * @param {object} window The main window instance
+ * @param {object} options Import options
  * @returns {Promise<Object>} Import result
  */
-async function importFromOpera(database, dialog, window) {
+async function importFromOpera(database, dialog, window, options = { handleDuplicates: 'skip', createCategory: true }) {
   try {
     // Opera uses Chromium's password system
     const result = await dialog.showOpenDialog(window, {
@@ -479,7 +485,7 @@ async function importFromOpera(database, dialog, window) {
       return { success: false, imported: 0, error: 'Import was canceled' };
     }
     
-    return importFromCSV(result.filePaths[0], database);
+    return importFromCSV(result.filePaths[0], database, options);
   } catch (error) {
     console.error('Error importing from Opera:', error);
     return { success: false, imported: 0, error: error.message };
@@ -489,143 +495,345 @@ async function importFromOpera(database, dialog, window) {
 /**
  * Import passwords from a CSV file
  * @param {string} filePath Path to the CSV file
- * @param {object} database The database instance
+ * @param {object} database Database instance
+ * @param {object} options Import options
  * @returns {Promise<Object>} Import result
  */
-async function importFromCSV(filePath, database) {
+async function importFromCSV(filePath, database, options = { handleDuplicates: 'skip', createCategory: true }) {
+  const fs = require('fs');
+  const csv = require('csv-parser');
+  const path = require('path');
+  const { URL } = require('url');
+  
   try {
-    const fileContent = fs.readFileSync(filePath, 'utf8');
-    const lines = fileContent.split('\n');
-    
-    if (lines.length <= 1) {
-      return { success: false, imported: 0, error: 'No data found in the CSV file' };
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`CSV file not found: ${filePath}`);
     }
     
-    // First line is header
-    const header = lines[0].split(',');
+    // Determine the browser type from file content (header analysis)
+    let accountsArray = [];
+    let browserType = '';
+    let duplicatesFound = 0;
+    let skippedCount = 0;
+    let updatedCount = 0;
     
-    // Find column indices based on common headers in different browser exports
-    const urlIndex = findColumnIndex(header, ['url', 'web site', 'website', 'origin', 'origin_url']);
-    const usernameIndex = findColumnIndex(header, ['username', 'name', 'login', 'user', 'login_username']);
-    const passwordIndex = findColumnIndex(header, ['password', 'pass', 'pwd', 'password_value']);
+    // Parse the CSV file
+    await new Promise((resolve, reject) => {
+      fs.createReadStream(filePath)
+        .pipe(csv())
+        .on('data', (row) => {
+          // Try to determine browser type from headers if not already determined
+          if (!browserType) {
+            if (row.name && row.url && row.username && row.password) {
+              browserType = 'chrome'; // Chrome, Edge, Brave
+            } else if (row.hostname && row.username && row.password) {
+              browserType = 'firefox';
+            } else if (row['Web Address'] && row['User Name'] && row.Password) {
+              browserType = 'safari';
+            } else if (row['Site'] && row['Username'] && row['Password']) {
+              browserType = 'opera';
+            }
+          }
+          
+          // Basic validation - skip empty rows or missing required fields
+          if (Object.keys(row).length === 0) return;
+          
+          // Convert row to standardized account format based on browser format
+          const account = convertRowToAccount(row, browserType);
+          
+          // Skip invalid accounts
+          if (!account) return;
+          
+          // Add to array
+          accountsArray.push(account);
+        })
+        .on('end', resolve)
+        .on('error', reject);
+    });
     
-    if (urlIndex === -1 || usernameIndex === -1 || passwordIndex === -1) {
-      return { 
-        success: false, 
-        imported: 0, 
-        error: 'CSV format not recognized. Please make sure it contains URL, username, and password columns.' 
-      };
+    if (!accountsArray.length) {
+      throw new Error('No valid accounts found in the CSV file');
     }
     
-    let importedCount = 0;
-    const errors = [];
+    console.log(`Found ${accountsArray.length} accounts to import from ${browserType} format`);
     
-    // Process each line (skip header)
-    for (let i = 1; i < lines.length; i++) {
-      if (!lines[i].trim()) continue; // Skip empty lines
-      
+    // Create browser category if needed and requested
+    let categoryId = null;
+    if (options.createCategory) {
       try {
-        // Handle quoted CSV properly
-        const values = parseCSVLine(lines[i]);
+        // Check if the category already exists
+        const categories = await database.getCategories();
+        const browserCategory = categories.find(c => c.name === browserType);
         
-        if (values.length <= Math.max(urlIndex, usernameIndex, passwordIndex)) {
-          continue; // Skip malformed lines
+        if (browserCategory) {
+          categoryId = browserCategory.id;
+        } else {
+          // Create new category
+          const newCategory = await database.addCategory({
+            name: browserType,
+            color: getColorForBrowser(browserType),
+            description: `Imported from ${browserType}`
+          });
+          categoryId = newCategory.id;
         }
-        
-        const url = values[urlIndex].trim().replace(/^"|"$/g, '');
-        const username = values[usernameIndex].trim().replace(/^"|"$/g, '');
-        const password = values[passwordIndex].trim().replace(/^"|"$/g, '');
-        
-        if (!url || !username || !password) {
-          continue; // Skip entries with missing data
-        }
-        
-        // Parse domain from URL
-        let domain = '';
-        try {
-          const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
-          domain = urlObj.hostname;
-        } catch (e) {
-          domain = url; // If URL parsing fails, use the original string
-        }
-        
-        // Generate a user-friendly account name
-        const accountName = domain ? `${domain} (${username})` : `Imported Account - ${username}`;
-        
-        // Add to database with proper 'name' field instead of 'title'
-        await database.addAccount({
-          name: accountName, // This is the key fix - use 'name' instead of 'title'
-          username: username,
-          password: password,
-          url: url,
-          notes: `Imported from browser on ${new Date().toLocaleDateString()}`,
-          category: 'Imported'
-        });
-        
-        importedCount++;
       } catch (error) {
-        console.error(`Error processing line ${i}:`, error);
-        errors.push(`Line ${i}: ${error.message}`);
+        console.error('Failed to create/get browser category:', error);
+        // Continue without category if there's an error
       }
     }
     
-    if (importedCount === 0 && errors.length > 0) {
-      return { success: false, imported: 0, error: 'Failed to import any passwords. ' + errors[0] };
+    // Get existing accounts to check for duplicates
+    const existingAccounts = await database.getAccounts();
+    
+    // Process accounts in batches to improve performance
+    const BATCH_SIZE = 10;
+    let imported = 0;
+    
+    // Process in batches
+    for (let i = 0; i < accountsArray.length; i += BATCH_SIZE) {
+      const batch = accountsArray.slice(i, i + BATCH_SIZE);
+      
+      // Process each account in the batch
+      for (const account of batch) {
+        try {
+          // If a category was created, assign it to the account
+          if (categoryId) {
+            account.categoryId = categoryId;
+          }
+          
+          // Check for duplicates by URL and username
+          const isDuplicate = checkForDuplicate(account, existingAccounts);
+          
+          if (isDuplicate) {
+            duplicatesFound++;
+            
+            if (options.handleDuplicates === 'skip') {
+              // Skip this account
+              skippedCount++;
+              continue;
+            } else if (options.handleDuplicates === 'update') {
+              // Update the existing account
+              const existingAccount = existingAccounts.find(a => 
+                a.url === account.url && a.username === account.username
+              );
+              
+              if (existingAccount) {
+                // Preserve fields that should not be overwritten
+                account.id = existingAccount.id;
+                account.createdAt = existingAccount.createdAt;
+                account.notes = account.notes || existingAccount.notes;
+                
+                // Update the account
+                await database.updateAccount(account);
+                updatedCount++;
+                imported++;
+              }
+            }
+          } else {
+            // Not a duplicate, add as new
+            await database.addAccount(account);
+            imported++;
+          }
+        } catch (error) {
+          console.error(`Error importing account ${account.name}:`, error);
+          // Continue with next account
+        }
+      }
     }
     
-    return { success: true, imported: importedCount };
+    return {
+      success: true,
+      imported,
+      skipped: skippedCount,
+      updated: updatedCount,
+      duplicates: duplicatesFound,
+      total: accountsArray.length,
+      browserType
+    };
   } catch (error) {
-    console.error('Error importing from CSV:', error);
-    return { success: false, imported: 0, error: error.message };
+    console.error('CSV import error:', error);
+    return { success: false, error: error.message };
   }
 }
 
 /**
- * Find column index in CSV header by possible names
- * @param {Array<string>} header CSV header array
- * @param {Array<string>} possibleNames Possible column names
- * @returns {number} Column index or -1 if not found
+ * Convert a row from CSV to standardized account format
+ * @param {object} row CSV row data
+ * @param {string} browserType Browser type
+ * @returns {object|null} Formatted account or null if invalid
  */
-function findColumnIndex(header, possibleNames) {
-  for (const name of possibleNames) {
-    const index = header.findIndex(h => 
-      h.toLowerCase().trim().replace(/^"|"$/g, '').includes(name.toLowerCase())
-    );
-    if (index !== -1) return index;
-  }
-  return -1;
-}
-
-/**
- * Parse a CSV line respecting quoted values
- * @param {string} line CSV line
- * @returns {Array<string>} Array of values
- */
-function parseCSVLine(line) {
-  const result = [];
-  let current = '';
-  let inQuotes = false;
+function convertRowToAccount(row, browserType) {
+  // Get current date for account creation time
+  const now = new Date().toISOString();
   
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
+  try {
+    let account = {
+      name: '',
+      url: '',
+      username: '',
+      password: '',
+      notes: `Imported from ${browserType} on ${new Date().toLocaleDateString()}`,
+      createdAt: now,
+      updatedAt: now,
+      lastUsed: now,
+      strength: 0
+    };
     
-    if (char === '"') {
-      // Toggle quotes state
-      inQuotes = !inQuotes;
-    } else if (char === ',' && !inQuotes) {
-      // End of field
-      result.push(current);
-      current = '';
-    } else {
-      // Regular character
-      current += char;
+    // Map fields based on browser format
+    switch (browserType) {
+      case 'chrome':
+      case 'brave':
+      case 'edge':
+        account.name = row.name || extractDomainForName(row.url) || 'Unknown';
+        account.url = sanitizeUrl(row.url);
+        account.username = row.username || '';
+        account.password = row.password || '';
+        break;
+        
+      case 'firefox':
+        account.name = row.hostname || extractDomainForName(row.url) || 'Unknown';
+        account.url = sanitizeUrl(row.url || row.hostname);
+        account.username = row.username || '';
+        account.password = row.password || '';
+        break;
+        
+      case 'safari':
+        account.name = row.Title || extractDomainForName(row['Web Address']) || 'Unknown';
+        account.url = sanitizeUrl(row['Web Address']);
+        account.username = row['User Name'] || '';
+        account.password = row.Password || '';
+        break;
+        
+      case 'opera':
+        account.name = row.Site || extractDomainForName(row.URL) || 'Unknown';
+        account.url = sanitizeUrl(row.URL || row.Site);
+        account.username = row.Username || '';
+        account.password = row.Password || '';
+        break;
+        
+      default:
+        // Handle unknown format - try common field names
+        account.name = row.name || row.title || row.site || row.hostname || 'Unknown';
+        account.url = sanitizeUrl(row.url || row.web_address || row.URL || row.hostname || '');
+        account.username = row.username || row.user || row.login || row['User Name'] || row.Username || '';
+        account.password = row.password || row.pass || row.Password || '';
     }
+    
+    // Validate that we have the minimum required fields
+    if (!account.password) {
+      console.log('Skipping account with no password:', account.name);
+      return null;
+    }
+    
+    // Set name from URL if it's missing
+    if (!account.name || account.name === 'Unknown') {
+      account.name = extractDomainForName(account.url) || 'Unknown Site';
+    }
+    
+    return account;
+  } catch (error) {
+    console.error('Error converting CSV row:', error);
+    return null;
   }
+}
+
+/**
+ * Sanitize and validate URLs
+ * @param {string} url URL string to sanitize
+ * @returns {string} Sanitized URL
+ */
+function sanitizeUrl(url) {
+  if (!url) return '';
   
-  // Add the last field
-  result.push(current);
+  try {
+    // Check if URL is already properly formatted with protocol
+    if (!url.match(/^https?:\/\//i)) {
+      // Add https:// prefix if no protocol specified
+      url = 'https://' + url;
+    }
+    
+    // Try to parse the URL to validate it
+    const parsedUrl = new URL(url);
+    return parsedUrl.href;
+  } catch (error) {
+    // If URL is invalid, return the original input
+    return url;
+  }
+}
+
+/**
+ * Extract domain name for account name
+ * @param {string} url Website URL
+ * @returns {string} Domain name or empty string
+ */
+function extractDomainForName(url) {
+  if (!url) return '';
   
-  return result;
+  try {
+    // Add protocol if missing for URL parsing
+    if (!url.match(/^https?:\/\//i)) {
+      url = 'https://' + url;
+    }
+    
+    const parsedUrl = new URL(url);
+    // Get domain without www. prefix
+    return parsedUrl.hostname.replace(/^www\./i, '');
+  } catch (error) {
+    // Return original if parsing fails
+    return url;
+  }
+}
+
+/**
+ * Get a color for browser category
+ * @param {string} browserType Browser type
+ * @returns {string} Color code
+ */
+function getColorForBrowser(browserType) {
+  const colors = {
+    chrome: '#4285F4',   // Chrome blue
+    firefox: '#FF9400',  // Firefox orange
+    edge: '#0078D7',     // Edge blue
+    safari: '#006CFF',   // Safari blue
+    opera: '#FF1B2D',    // Opera red
+    brave: '#FB542B'     // Brave orange-red
+  };
+  
+  return colors[browserType] || '#757575'; // Default gray
+}
+
+/**
+ * Check if an account is a duplicate
+ * @param {object} account Account to check
+ * @param {Array<object>} existingAccounts Array of existing accounts
+ * @returns {boolean} True if account is a duplicate
+ */
+function checkForDuplicate(account, existingAccounts) {
+  if (!existingAccounts || !existingAccounts.length) return false;
+  
+  // Check for duplicates by URL and username
+  return existingAccounts.some(existing => {
+    // Both URL and username must match to be considered a duplicate
+    // Use lowercase comparison and strip protocol
+    const normalizeUrl = (url) => {
+      if (!url) return '';
+      return url.toLowerCase()
+        .replace(/^https?:\/\//i, '')
+        .replace(/^www\./i, '')
+        .replace(/\/+$/, ''); // Remove trailing slashes
+    };
+    
+    const normalizedExistingUrl = normalizeUrl(existing.url);
+    const normalizedNewUrl = normalizeUrl(account.url);
+    
+    // If both URL and username match, it's a duplicate
+    return (
+      normalizedExistingUrl && 
+      normalizedNewUrl &&
+      normalizedExistingUrl === normalizedNewUrl &&
+      existing.username === account.username
+    );
+  });
 }
 
 module.exports = {

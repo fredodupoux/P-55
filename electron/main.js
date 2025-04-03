@@ -303,13 +303,13 @@ async function initializeIPC() {
     });
     
     console.log('Registering import-from-browser handler');
-    ipcMain.handle('import-from-browser', async (event, { browserType }) => {
+    ipcMain.handle('import-from-browser', async (event, { browserType, importOptions = { handleDuplicates: 'skip', createCategory: true } }) => {
       try {
-        console.log('import-from-browser handler called for browser type:', browserType);
+        console.log('import-from-browser handler called for browser type:', browserType, 'with options:', importOptions);
         if (!browserType) {
           return { success: false, imported: 0, error: 'Browser type not specified' };
         }
-        const result = await importFromBrowser(browserType, database, dialog, mainWindow);
+        const result = await importFromBrowser(browserType, database, dialog, mainWindow, importOptions);
         return result;
       } catch (error) {
         lastError = error;

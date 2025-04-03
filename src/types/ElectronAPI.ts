@@ -14,6 +14,7 @@ export interface BrowserImportResult {
   success: boolean;
   imported: number;
   duplicates?: number;
+  updated?: number;
   errors?: number;
   error?: string;
 }

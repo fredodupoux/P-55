@@ -35,7 +35,7 @@ import Alert from '@mui/material/Alert';
 import { keyframes } from '@mui/system';
 import React, { useEffect, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import AccountService from '../services/AccountService';
+import AccountService, { BrowserImportResult } from '../services/AccountService';
 import { Account } from '../types/Account';
 import AccountDetailPanel from './AccountDetailPanel';
 import AccountForm from './AccountForm';
@@ -389,7 +389,7 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
     setImportDialogOpen(false);
   };
 
-  const handleImportSuccess = (importedCount: number) => {
+  const handleImportSuccess = (result: BrowserImportResult) => {
     // Reload accounts after successful import
     const loadAccounts = async () => {
       try {
@@ -404,7 +404,7 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
     
     setNotification({
       open: true,
-      message: `Successfully imported ${importedCount} passwords`,
+      message: `Successfully imported ${result.imported} passwords`,
       severity: 'success'
     });
   };
