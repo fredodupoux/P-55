@@ -86,32 +86,61 @@ authenticator.options = {
 class Database {
   constructor() {
     // Store database in user data directory, which is outside of app resources
-    this.userDataPath = app.getPath('userData');
+    this.userDataPath = null;
     
-    // Create a dedicated database directory
-    this.dbDir = path.join(this.userDataPath, 'database');
-    
-    console.log('Database directory path:', this.dbDir);
-    
-    try {
-      if (!fs.existsSync(this.dbDir)) {
-        fs.mkdirSync(this.dbDir, { recursive: true });
-        console.log('Created database directory');
-      }
-    } catch (error) {
-      console.error('Error creating database directory:', error);
-    }
-    
-    // Store the database file in the user data directory
-    this.dbPath = path.join(this.dbDir, 'pass55.db');
-    console.log('Database file path:', this.dbPath);
+    // Database paths will be set in init method
+    this.dbDir = null;
+    this.dbPath = null;
     this.db = null;
     this.masterKey = null;
-    
-    // Periodically backup the database
-    this.setupAutomaticBackup();
   }
 
+  // New init method to set up paths without reassigning the module
+  init(appInstance) {
+    return new Promise((resolve, reject) => {
+      try {
+        console.log('Initializing database paths and directories');
+        
+        if (!appInstance) {
+          console.error('App instance not provided to database.init()');
+          reject(new Error('App instance not provided'));
+          return;
+        }
+        
+        // Store database in user data directory, which is outside of app resources
+        this.userDataPath = appInstance.getPath('userData');
+        
+        // Create a dedicated database directory
+        this.dbDir = path.join(this.userDataPath, 'database');
+        
+        console.log('Database directory path:', this.dbDir);
+        
+        try {
+          if (!fs.existsSync(this.dbDir)) {
+            fs.mkdirSync(this.dbDir, { recursive: true });
+            console.log('Created database directory');
+          }
+        } catch (error) {
+          console.error('Error creating database directory:', error);
+          reject(error);
+          return;
+        }
+        
+        // Store the database file in the user data directory
+        this.dbPath = path.join(this.dbDir, 'pass55.db');
+        console.log('Database file path:', this.dbPath);
+        
+        // Periodically backup the database
+        this.setupAutomaticBackup();
+        
+        resolve(true);
+      } catch (error) {
+        console.error('Database init error:', error);
+        reject(error);
+      }
+    });
+  }
+  
   // Create backup system for the database
   setupAutomaticBackup() {
     // Create backups directory if it doesn't exist
@@ -153,6 +182,11 @@ class Database {
     
     // Create a backup at initialization and then every 24 hours
     this.backupInterval = setInterval(() => this.createBackup(), 24 * 60 * 60 * 1000);
+  }
+  
+  // Check if database exists
+  exists() {
+    return fs.existsSync(this.dbPath);
   }
 
   // Initialize the database with encryption key

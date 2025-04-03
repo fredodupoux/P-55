@@ -63,7 +63,10 @@ contextBridge.exposeInMainWorld(
         'verify-totp',
         // Add new channels for custom backup and restore
         'create-backup-custom-location',
-        'restore-database-backup'
+        'restore-database-backup',
+        // Add browser import channels
+        'get-available-browsers',
+        'import-from-browser'
       ];
       if (validChannels.includes(channel)) {
         return ipcRenderer.invoke(channel, data);
@@ -114,6 +117,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Custom backup and restore functions
   createBackupCustomLocation: (location) => ipcRenderer.invoke('create-backup-custom-location', location),
   restoreDatabaseBackup: (backupPath) => ipcRenderer.invoke('restore-database-backup', backupPath),
+  
+  // Browser import functions
+  getAvailableBrowsers: () => ipcRenderer.invoke('get-available-browsers'),
+  importFromBrowser: (browserType) => ipcRenderer.invoke('import-from-browser', { browserType }),
   
   // Application restart function
   restartApplication: () => ipcRenderer.invoke('restart-app'),

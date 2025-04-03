@@ -2,8 +2,10 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const isDev = require('electron-is-dev');
-const database = require('./database');
 const { autoUpdater } = require('electron-updater');
+// Fix the database import to maintain the full database object
+const database = require('./database');
+const { detectBrowsers, importFromBrowser } = require('./browser-import');
 const qrcode = require('qrcode');
 
 // Add this at the top of the file, before other requires
@@ -227,6 +229,10 @@ app.whenReady().then(() => {
   autoUpdater.checkForUpdatesAndNotify().catch(err => {
     console.error('Auto-updater error:', err);
   });
+  
+  // Call initializeIPC to register all handlers
+  initializeIPC();
+  
 }).catch(error => {
   writeToLog('error', 'Failed to initialize app', error);
 });
@@ -271,6 +277,57 @@ app.on('activate', () => {
     createWindow();
   }
 });
+
+// Initialize database and set up IPC handlers
+async function initializeIPC() {
+  try {
+    // Initialize the database without reassigning the imported database module
+    await database.init(app);
+    
+    writeToLog('info', 'Initializing IPC handlers');
+    
+    // Log that we're registering the handlers
+    console.log('Registering get-available-browsers handler');
+    
+    // Browser import handlers
+    ipcMain.handle('get-available-browsers', async () => {
+      try {
+        console.log('get-available-browsers handler called');
+        const browsers = await detectBrowsers();
+        return { success: true, browsers };
+      } catch (error) {
+        lastError = error;
+        console.error('Get available browsers error:', error);
+        return { success: false, error: error.message, browsers: {} };
+      }
+    });
+    
+    console.log('Registering import-from-browser handler');
+    ipcMain.handle('import-from-browser', async (event, { browserType }) => {
+      try {
+        console.log('import-from-browser handler called for browser type:', browserType);
+        if (!browserType) {
+          return { success: false, imported: 0, error: 'Browser type not specified' };
+        }
+        const result = await importFromBrowser(browserType, database, dialog, mainWindow);
+        return result;
+      } catch (error) {
+        lastError = error;
+        console.error('Import from browser error:', error);
+        return { 
+          success: false, 
+          imported: 0, 
+          error: error.message || `Failed to import from ${browserType}`
+        };
+      }
+    });
+    
+    writeToLog('info', 'Browser import handlers registered successfully');
+    
+  } catch (error) {
+    writeToLog('error', 'Failed to initialize IPC handlers', error);
+  }
+}
 
 // IPC handlers for database operations
 ipcMain.handle('initialize-db', async (event, password) => {

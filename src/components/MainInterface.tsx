@@ -1,6 +1,7 @@
 import AddIcon from '@mui/icons-material/Add';
 import BackupIcon from '@mui/icons-material/Backup';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
+import ImportExportIcon from '@mui/icons-material/ImportExport';
 import KeyIcon from '@mui/icons-material/Key';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -12,23 +13,23 @@ import TextDecreaseIcon from '@mui/icons-material/TextDecrease';
 import TextIncreaseIcon from '@mui/icons-material/TextIncrease';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import {
-  AppBar,
-  Box,
-  Button,
-  Divider,
-  Grid,
-  IconButton,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  Menu,
-  MenuItem,
-  Paper,
-  Snackbar,
-  TextField,
-  Toolbar,
-  Typography
+    AppBar,
+    Box,
+    Button,
+    Divider,
+    Grid,
+    IconButton,
+    List,
+    ListItem,
+    ListItemButton,
+    ListItemText,
+    Menu,
+    MenuItem,
+    Paper,
+    Snackbar,
+    TextField,
+    Toolbar,
+    Typography
 } from '@mui/material';
 import Alert from '@mui/material/Alert';
 import { keyframes } from '@mui/system';
@@ -39,6 +40,7 @@ import { Account } from '../types/Account';
 import AccountDetailPanel from './AccountDetailPanel';
 import AccountForm from './AccountForm';
 import BackupDialog from './BackupDialog';
+import ImportDialog from './ImportDialog';
 import PasswordChangeDialog from './PasswordChangeDialog';
 import TOTPSetupDialog from './TOTPSetupDialog';
 
@@ -64,6 +66,7 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
   const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
   const [totpSetupOpen, setTotpSetupOpen] = useState(false);
   const [backupDialogOpen, setBackupDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [securityMenuAnchorEl, setSecurityMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [viewMenuAnchorEl, setViewMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
@@ -382,6 +385,30 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
     setBackupDialogOpen(false);
   };
 
+  const handleImportDialogClose = () => {
+    setImportDialogOpen(false);
+  };
+
+  const handleImportSuccess = (importedCount: number) => {
+    // Reload accounts after successful import
+    const loadAccounts = async () => {
+      try {
+        const loadedAccounts = await AccountService.getAccounts();
+        setAccounts(loadedAccounts);
+      } catch (error) {
+        console.error('Failed to reload accounts after import:', error);
+      }
+    };
+    
+    loadAccounts();
+    
+    setNotification({
+      open: true,
+      message: `Successfully imported ${importedCount} passwords`,
+      severity: 'success'
+    });
+  };
+
   return (
     <Box sx={{ 
       flexGrow: 1, 
@@ -511,6 +538,13 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
               Two-Factor Authentication
             </MenuItem>
             <Divider />
+            <MenuItem onClick={() => {
+              handleSecurityMenuClose();
+              setImportDialogOpen(true);
+            }}>
+              <ImportExportIcon fontSize="small" sx={{ mr: 1 }} />
+              Import Passwords
+            </MenuItem>
             <MenuItem onClick={() => {
               handleSecurityMenuClose();
               setBackupDialogOpen(true);
@@ -646,6 +680,17 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
                     >
                       Add New Account
                     </Button>
+                    {accounts.length === 0 && (
+                      <Button
+                        variant="outlined"
+                        startIcon={<ImportExportIcon />}
+                        size="large"
+                        sx={{ mt: 2 }}
+                        onClick={() => setImportDialogOpen(true)}
+                      >
+                        Import Passwords
+                      </Button>
+                    )}
                   </Box>
                 )}
               </Box>
@@ -687,6 +732,13 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
       <BackupDialog 
         open={backupDialogOpen} 
         onClose={handleBackupDialogClose} 
+      />
+
+      {/* Import Dialog */}
+      <ImportDialog
+        open={importDialogOpen}
+        onClose={handleImportDialogClose}
+        onSuccess={handleImportSuccess}
       />
     </Box>
   );

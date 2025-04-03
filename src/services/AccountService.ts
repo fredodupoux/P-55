@@ -1,5 +1,5 @@
 import { Account } from '../types/Account';
-import '../types/ElectronAPI'; // Import for type augmentation
+import { BrowserImportResult } from "../types/ElectronAPI";
 import { SecurityQuestionAnswer } from '../types/SecurityQuestion';
 
 // Interface for TOTP settings
@@ -16,6 +16,20 @@ export interface TOTPSetupResult {
   manualEntryKey?: string;
   error?: string;
 }
+
+// Interface for available browsers
+export interface AvailableBrowsers {
+  [key: string]: boolean;
+  chrome: boolean;
+  firefox: boolean;
+  safari: boolean;
+  edge: boolean;
+  brave: boolean;
+  opera: boolean;
+}
+
+// Re-export BrowserImportResult type
+export type { BrowserImportResult };
 
 export class AccountService {
   // Check if the database exists
@@ -601,6 +615,91 @@ export class AccountService {
     } catch (error) {
       console.error('Failed to check last error:', error);
       return false;
+    }
+  }
+
+  // Get available browsers that passwords can be imported from
+  static async getAvailableBrowsers(): Promise<AvailableBrowsers> {
+    if (!window.api) {
+      console.error('Electron API not available - cannot detect browsers');
+      return {
+        chrome: false,
+        firefox: false,
+        safari: false,
+        edge: false,
+        brave: false,
+        opera: false
+      };
+    }
+
+    try {
+      console.log('Detecting available browsers...');
+      const result = await window.api.invoke('get-available-browsers', null);
+      console.log('Browser detection result:', result);
+      
+      if (result.success) {
+        return result.browsers;
+      }
+      
+      // Return all false if the operation failed
+      return {
+        chrome: false,
+        firefox: false,
+        safari: false,
+        edge: false,
+        brave: false,
+        opera: false
+      };
+    } catch (error) {
+      console.error('Error detecting browsers:', error);
+      return {
+        chrome: false,
+        firefox: false,
+        safari: false,
+        edge: false,
+        brave: false,
+        opera: false
+      };
+    }
+  }
+
+  // Import passwords from a browser
+  static async importFromBrowser(browserType: string): Promise<BrowserImportResult> {
+    if (!window.api) {
+      console.error('Electron API not available - cannot import passwords');
+      return { 
+        success: false, 
+        imported: 0,
+        error: 'Electron API not available'
+      };
+    }
+
+    try {
+      console.log(`Importing passwords from ${browserType}...`);
+      const result = await window.api.invoke('import-from-browser', { browserType });
+      console.log('Import result:', result);
+      
+      if (result.success) {
+        return {
+          success: true,
+          imported: result.imported,
+          duplicates: result.duplicates,
+          errors: result.errors
+        };
+      }
+      
+      return {
+        success: false,
+        imported: 0,
+        error: result.error || `Failed to import from ${browserType}`
+      };
+    } catch (error) {
+      console.error('Error importing passwords:', error);
+      return {
+        success: false,
+        imported: 0,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
     }
   }
 }

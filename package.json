@@ -1,12 +1,12 @@
 {
   "name": "p-55",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "A simple password manager for seniors",
   "main": "electron/main.js",
   "homepage": "./",
   "author": {
-    "name": "P+55 Team",
-    "email": "example@example.com"
+    "name": "Frederic Dupoux",
+    "email": "p55@zaboka.net"
   },
   "scripts": {
     "start": "npm install --legacy-peer-deps && concurrently \"npm run start:react\" \"npm run start:electron\"",

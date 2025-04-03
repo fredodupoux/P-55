@@ -10,6 +10,27 @@ export interface BackupResult {
   error?: string;
 }
 
+export interface BrowserImportResult {
+  success: boolean;
+  imported: number;
+  duplicates?: number;
+  errors?: number;
+  error?: string;
+}
+
+export interface AvailableBrowsersResult {
+  success: boolean;
+  browsers: {
+    chrome: boolean;
+    firefox: boolean;
+    safari: boolean;
+    edge: boolean;
+    brave: boolean;
+    opera: boolean;
+  };
+  error?: string;
+}
+
 export interface ElectronDirectAPI {
   // Authentication functions
   initializeDatabase: (password: string) => Promise<any>;
@@ -51,6 +72,10 @@ export interface ElectronDirectAPI {
   // Custom backup and restore functions
   createBackupCustomLocation: () => Promise<BackupResult>;
   restoreDatabaseBackup: () => Promise<BackupResult>;
+  
+  // Browser password import functions
+  getAvailableBrowsers: () => Promise<AvailableBrowsersResult>;
+  importFromBrowser: (options: { browserType: string }) => Promise<BrowserImportResult>;
   
   // Application functions
   restartApplication: () => Promise<{success: boolean, error?: string}>;
