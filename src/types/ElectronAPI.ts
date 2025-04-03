@@ -4,6 +4,12 @@ export interface ElectronAPI {
   invoke: (channel: string, data: any) => Promise<any>;
 }
 
+export interface BackupResult {
+  success: boolean;
+  path?: string;
+  error?: string;
+}
+
 export interface ElectronDirectAPI {
   // Authentication functions
   initializeDatabase: (password: string) => Promise<any>;
@@ -41,6 +47,13 @@ export interface ElectronDirectAPI {
   zoomIn: () => Promise<any>;
   zoomOut: () => Promise<any>;
   getZoomLevel: () => Promise<any>;
+  
+  // Custom backup and restore functions
+  createBackupCustomLocation: () => Promise<BackupResult>;
+  restoreDatabaseBackup: () => Promise<BackupResult>;
+  
+  // Application functions
+  restartApplication: () => Promise<{success: boolean, error?: string}>;
   
   // Event listeners
   onLockApplication: (callback: () => void) => (() => void);

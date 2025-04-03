@@ -183,7 +183,7 @@ function createWindow() {
         isDbInitialized = false;
         writeToLog('info', 'Application auto-locked due to inactivity');
       }
-    }, 5 * 60 * 1000); // 5 minutes
+    }, AUTH_TIMEOUT_MS); // 5 minutes
   };
 
   // Reset timer on any user activity
@@ -440,6 +440,91 @@ ipcMain.handle('create-backup', async () => {
   }
 });
 
+// New IPC handler for custom backup location
+ipcMain.handle('create-backup-custom-location', async () => {
+  try {
+    if (!isDbInitialized) {
+      throw new Error('Database not initialized');
+    }
+    
+    // Show a dialog to let the user choose where to save the backup
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: 'Save Database Backup',
+      defaultPath: path.join(app.getPath('documents'), `p55-backup-${new Date().toISOString().replace(/:/g, '-')}.db`),
+      buttonLabel: 'Save Backup',
+      filters: [
+        { name: 'Database Files', extensions: ['db'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+    
+    if (canceled || !filePath) {
+      return { success: false, error: 'Backup canceled by user' };
+    }
+    
+    // Create a copy of the database file in the selected location
+    const dbPath = database.dbPath;
+    if (!fs.existsSync(dbPath)) {
+      throw new Error('Database file does not exist');
+    }
+    
+    fs.copyFileSync(dbPath, filePath);
+    writeToLog('info', `Custom backup created at: ${filePath}`);
+    
+    return { success: true, path: filePath };
+  } catch (error) {
+    writeToLog('error', 'Failed to create custom backup', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// New IPC handler for database restore
+ipcMain.handle('restore-database-backup', async () => {
+  try {
+    // Show a dialog to let the user choose a backup file to restore
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: 'Restore Database Backup',
+      defaultPath: app.getPath('documents'),
+      buttonLabel: 'Restore',
+      filters: [
+        { name: 'Database Files', extensions: ['db'] },
+        { name: 'All Files', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    });
+    
+    if (canceled || filePaths.length === 0) {
+      return { success: false, error: 'Restore canceled by user' };
+    }
+    
+    // Close the database connection if it's open
+    if (isDbInitialized) {
+      database.close();
+      isDbInitialized = false;
+    }
+    
+    const backupPath = filePaths[0];
+    const dbPath = database.dbPath;
+    
+    // Create a backup of the current database before restoring
+    if (fs.existsSync(dbPath)) {
+      const timestamp = new Date().toISOString().replace(/:/g, '-');
+      const preRestoreBackup = path.join(path.dirname(dbPath), `pre-restore-backup-${timestamp}.db`);
+      fs.copyFileSync(dbPath, preRestoreBackup);
+      writeToLog('info', `Created pre-restore backup at: ${preRestoreBackup}`);
+    }
+    
+    // Copy the selected backup file to the database location
+    fs.copyFileSync(backupPath, dbPath);
+    writeToLog('info', `Restored database from backup: ${backupPath}`);
+    
+    return { success: true, path: backupPath };
+  } catch (error) {
+    writeToLog('error', 'Failed to restore database backup', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // New IPC handler to get database path
 ipcMain.handle('get-database-path', async () => {
   try {
@@ -449,6 +534,22 @@ ipcMain.handle('get-database-path', async () => {
     };
   } catch (error) {
     console.error('Failed to get database path:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Update restart-app IPC handler to do a hard refresh instead of full restart
+ipcMain.handle('restart-app', async () => {
+  try {
+    writeToLog('info', 'Performing hard refresh of application window');
+    if (mainWindow) {
+      mainWindow.webContents.reload();
+      return { success: true };
+    } else {
+      throw new Error('Main window not available');
+    }
+  } catch (error) {
+    writeToLog('error', 'Failed to refresh application window', error);
     return { success: false, error: error.message };
   }
 });

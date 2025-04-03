@@ -483,6 +483,56 @@ export class AccountService {
     }
   }
 
+  // Create a backup at a custom location chosen by the user
+  static async createBackupAtCustomLocation(): Promise<{success: boolean, path?: string, error?: string}> {
+    if (!window.electronAPI) {
+      console.error('Electron API not available - cannot create custom backup');
+      return { success: false, error: 'Electron API not available' };
+    }
+
+    try {
+      console.log('Creating backup at custom location...');
+      const result = await window.electronAPI.createBackupCustomLocation();
+      console.log('Custom backup result:', result);
+      return { 
+        success: result.success, 
+        path: result.path,
+        error: result.error
+      };
+    } catch (error) {
+      console.error('Error creating custom backup:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : String(error) 
+      };
+    }
+  }
+
+  // Restore database from a backup
+  static async restoreFromBackup(): Promise<{success: boolean, path?: string, error?: string}> {
+    if (!window.electronAPI) {
+      console.error('Electron API not available - cannot restore backup');
+      return { success: false, error: 'Electron API not available' };
+    }
+
+    try {
+      console.log('Restoring database from backup...');
+      const result = await window.electronAPI.restoreDatabaseBackup();
+      console.log('Restore result:', result);
+      return { 
+        success: result.success, 
+        path: result.path,
+        error: result.error
+      };
+    } catch (error) {
+      console.error('Error restoring from backup:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : String(error) 
+      };
+    }
+  }
+
   // Get the database file path
   static async getDatabasePath(): Promise<string | null> {
     if (!window.api) {
