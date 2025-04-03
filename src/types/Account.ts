@@ -5,4 +5,7 @@ export interface Account {
   password: string;
   website: string;
   notes: string;
+  // Adding new fields for compatibility with PrintablePasswordTable
+  url?: string;
+  lastModified?: number;
 }

@@ -37,6 +37,7 @@ import AccountService from '../services/AccountService';
 import { Account } from '../types/Account';
 import AccountDetailPanel from './AccountDetailPanel';
 import AccountForm from './AccountForm';
+import BackupDialog from './BackupDialog';
 import PasswordChangeDialog from './PasswordChangeDialog';
 import TOTPSetupDialog from './TOTPSetupDialog';
 
@@ -61,6 +62,7 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
   });
   const [passwordChangeOpen, setPasswordChangeOpen] = useState(false);
   const [totpSetupOpen, setTotpSetupOpen] = useState(false);
+  const [backupDialogOpen, setBackupDialogOpen] = useState(false);
   const [securityMenuAnchorEl, setSecurityMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [viewMenuAnchorEl, setViewMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
@@ -310,6 +312,10 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
       severity: 'success'
     });
   };
+  
+  const handleBackupDialogClose = () => {
+    setBackupDialogOpen(false);
+  };
 
   return (
     <Box sx={{ 
@@ -441,16 +447,11 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
             </MenuItem>
             <Divider />
             <MenuItem onClick={() => {
-              AccountService.createBackup();
               handleSecurityMenuClose();
-              setNotification({
-                open: true,
-                message: 'Backup created successfully',
-                severity: 'success'
-              });
+              setBackupDialogOpen(true);
             }}>
               <BackupIcon fontSize="small" sx={{ mr: 1 }} />
-              Create Backup
+              Backup & Restore
             </MenuItem>
           </Menu>
         </Toolbar>
@@ -601,6 +602,12 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
         open={totpSetupOpen}
         onClose={() => setTotpSetupOpen(false)}
         onSuccess={handleTOTPSetupSuccess}
+      />
+
+      {/* Backup Dialog */}
+      <BackupDialog 
+        open={backupDialogOpen} 
+        onClose={handleBackupDialogClose} 
       />
     </Box>
   );

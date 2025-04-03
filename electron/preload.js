@@ -59,7 +59,10 @@ contextBridge.exposeInMainWorld(
         'check-totp-enabled',
         'enable-totp',
         'disable-totp',
-        'verify-totp'
+        'verify-totp',
+        // Add new channels for custom backup and restore
+        'create-backup-custom-location',
+        'restore-database-backup'
       ];
       if (validChannels.includes(channel)) {
         return ipcRenderer.invoke(channel, data);
@@ -107,6 +110,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   zoomOut: () => ipcRenderer.invoke('zoom-out'),
   getZoomLevel: () => ipcRenderer.invoke('get-zoom-level'),
   
+  // Custom backup and restore functions
+  createBackupCustomLocation: (location) => ipcRenderer.invoke('create-backup-custom-location', location),
+  restoreDatabaseBackup: (backupPath) => ipcRenderer.invoke('restore-database-backup', backupPath),
+  
+  // Application restart function
+  restartApplication: () => ipcRenderer.invoke('restart-app'),
+
   // Event listeners
   onLockApplication: (callback) => {
     ipcRenderer.on('lock-application', callback);
