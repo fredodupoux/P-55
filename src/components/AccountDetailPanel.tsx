@@ -71,39 +71,10 @@ const AccountDetailPanel: React.FC<AccountDetailPanelProps> = ({ account, onSave
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h5" component="h2">
+      <Box sx={{ mb: 3, textAlign: 'left' }}>
+        <Typography variant="h5" component="h2" align="left">
           {isEditing ? 'Edit Account' : 'Account Details'}
         </Typography>
-        <Box>
-          {isEditing ? (
-            <Button
-              variant="contained"
-              startIcon={<Save />}
-              onClick={handleSave}
-              sx={{ mr: 1 }}
-            >
-              Save
-            </Button>
-          ) : (
-            <Button
-              variant="outlined"
-              startIcon={<Edit />}
-              onClick={() => setIsEditing(true)}
-              sx={{ mr: 1 }}
-            >
-              Edit
-            </Button>
-          )}
-          <Button
-            variant="outlined"
-            color="error"
-            startIcon={<Delete />}
-            onClick={handleDelete}
-          >
-            Delete
-          </Button>
-        </Box>
       </Box>
 
       <Divider sx={{ mb: 3 }} />
@@ -119,6 +90,9 @@ const AccountDetailPanel: React.FC<AccountDetailPanelProps> = ({ account, onSave
             disabled={!isEditing}
             InputProps={{
               readOnly: !isEditing,
+            }}
+            InputLabelProps={{
+              shrink: true, // Keep the label at the top always
             }}
           />
         </Grid>
@@ -144,6 +118,9 @@ const AccountDetailPanel: React.FC<AccountDetailPanelProps> = ({ account, onSave
                   </IconButton>
                 </InputAdornment>
               )
+            }}
+            InputLabelProps={{
+              shrink: true, // Keep the label at the top always
             }}
           />
         </Grid>
@@ -178,6 +155,9 @@ const AccountDetailPanel: React.FC<AccountDetailPanelProps> = ({ account, onSave
                 </InputAdornment>
               )
             }}
+            InputLabelProps={{
+              shrink: true, // Keep the label at the top always
+            }}
           />
         </Grid>
 
@@ -204,6 +184,9 @@ const AccountDetailPanel: React.FC<AccountDetailPanelProps> = ({ account, onSave
                 </InputAdornment>
               )
             }}
+            InputLabelProps={{
+              shrink: true, // Keep the label at the top always
+            }}
           />
         </Grid>
 
@@ -220,7 +203,41 @@ const AccountDetailPanel: React.FC<AccountDetailPanelProps> = ({ account, onSave
             InputProps={{
               readOnly: !isEditing,
             }}
+            InputLabelProps={{
+              shrink: true, // Keep the label at the top always
+            }}
           />
+        </Grid>
+        
+        {/* Action buttons moved below Notes field and aligned to the right */}
+        <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+          {isEditing ? (
+            <Button
+              variant="contained"
+              startIcon={<Save />}
+              onClick={handleSave}
+              sx={{ mr: 1 }}
+            >
+              Save
+            </Button>
+          ) : (
+            <Button
+              variant="outlined"
+              startIcon={<Edit />}
+              onClick={() => setIsEditing(true)}
+              sx={{ mr: 1 }}
+            >
+              Edit
+            </Button>
+          )}
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<Delete />}
+            onClick={handleDelete}
+          >
+            Delete
+          </Button>
         </Grid>
       </Grid>
     </Box>

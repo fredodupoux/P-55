@@ -31,9 +31,9 @@ import {
   Typography
 } from '@mui/material';
 import Alert from '@mui/material/Alert';
+import { keyframes } from '@mui/system';
 import React, { useEffect, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { keyframes } from '@mui/system';
 import AccountService from '../services/AccountService';
 import { Account } from '../types/Account';
 import AccountDetailPanel from './AccountDetailPanel';

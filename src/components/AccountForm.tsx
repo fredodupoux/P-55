@@ -9,6 +9,7 @@ import {
 import {
   Box,
   Button,
+  Divider,
   Grid,
   IconButton,
   InputAdornment,
@@ -16,7 +17,7 @@ import {
   Tooltip,
   Typography
 } from '@mui/material';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import PasswordGeneratorService from '../services/PasswordGeneratorService';
 import { Account } from '../types/Account';
 import PasswordGeneratorDialog from './PasswordGeneratorDialog';
@@ -38,12 +39,16 @@ const AccountForm: React.FC<AccountFormProps> = ({ account, onSave, onCancel }) 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Clean up the website field if it only contains "https://"
+    const cleanedWebsite = website === 'https://' ? '' : website;
+    
     onSave({
       id: account?.id,
       name,
       username,
       password,
-      website,
+      website: cleanedWebsite,
       notes
     });
   };
@@ -58,14 +63,29 @@ const AccountForm: React.FC<AccountFormProps> = ({ account, onSave, onCancel }) 
     setPassword(newPassword);
   };
 
-  const isFormValid = name.trim() !== '' && username.trim() !== '' && password.trim() !== '';
+  // Only name is required, and password is required only when username exists
+  const isPasswordRequired = username.trim() !== '';
+  const isFormValid = useMemo(() => {
+    // Name is always required
+    if (name.trim() === '') return false;
+    
+    // If username exists, password is required
+    if (username.trim() !== '' && password.trim() === '') return false;
+    
+    return true;
+  }, [name, username, password]);
 
   return (
     <Box>
-      <Typography variant="h5" component="h2" gutterBottom>
-        {account ? 'Edit Account' : 'Add New Account'}
-      </Typography>
+      <Box sx={{ mb: 3, textAlign: 'left' }}>
+        <Typography variant="h5" component="h2" align="left">
+         {account ? 'Edit Account' : 'Add New Account'}
+        </Typography>
+      </Box>
 
+      <Divider sx={{ mb: 3 }} />
+
+      {/* Form Fields */}
       <form onSubmit={handleSubmit}>
         <Grid container spacing={3}>
           <Grid item xs={12}>
@@ -78,6 +98,9 @@ const AccountForm: React.FC<AccountFormProps> = ({ account, onSave, onCancel }) 
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Gmail, Facebook, Bank"
               autoFocus
+              InputLabelProps={{
+                shrink: true, // Keep the label at the top always
+              }}
             />
           </Grid>
 
@@ -85,11 +108,13 @@ const AccountForm: React.FC<AccountFormProps> = ({ account, onSave, onCancel }) 
             <TextField
               label="Username or Email"
               fullWidth
-              required
               variant="outlined"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="e.g. yourname@example.com"
+              InputLabelProps={{
+                shrink: true, // Keep the label at the top always
+              }}
             />
           </Grid>
 
@@ -98,7 +123,7 @@ const AccountForm: React.FC<AccountFormProps> = ({ account, onSave, onCancel }) 
               <TextField
                 label="Password"
                 fullWidth
-                required
+                required={isPasswordRequired}
                 variant="outlined"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
@@ -116,6 +141,10 @@ const AccountForm: React.FC<AccountFormProps> = ({ account, onSave, onCancel }) 
                     </InputAdornment>
                   )
                 }}
+                InputLabelProps={{
+                  shrink: true, // Keep the label at the top always
+                }}
+                helperText={isPasswordRequired ? "Required when username is provided" : ""}
               />
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -149,6 +178,9 @@ const AccountForm: React.FC<AccountFormProps> = ({ account, onSave, onCancel }) 
               value={website}
               onChange={(e) => setWebsite(e.target.value)}
               placeholder="https://example.com"
+              InputLabelProps={{
+                shrink: true, // Keep the label at the top always
+              }}
             />
           </Grid>
 
@@ -162,6 +194,9 @@ const AccountForm: React.FC<AccountFormProps> = ({ account, onSave, onCancel }) 
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Add any additional information here"
+              InputLabelProps={{
+                shrink: true, // Keep the label at the top always
+              }}
             />
           </Grid>
 
