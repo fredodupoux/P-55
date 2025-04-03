@@ -48,12 +48,12 @@ jobs:
         run: |
           if [ "$GITHUB_REF_NAME" = "latest" ]; then
             VERSION=$(node -p "require('./package.json').version")
-            echo "DMG_VERSION=$VERSION" >> $GITHUB_ENV
-            echo "ARM64_DMG_VERSION=${VERSION}-arm64" >> $GITHUB_ENV
           else
-            echo "DMG_VERSION=$GITHUB_REF_NAME" >> $GITHUB_ENV
-            echo "ARM64_DMG_VERSION=${GITHUB_REF_NAME}-arm64" >> $GITHUB_ENV
+            # For tags like v0.3.0, strip the "v" prefix to match electron-builder output format
+            VERSION=${GITHUB_REF_NAME#v}
           fi
+          echo "DMG_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "ARM64_DMG_VERSION=${VERSION}-arm64" >> $GITHUB_ENV
         shell: bash
 
       - name: Build and Package for macOS
