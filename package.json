@@ -19,6 +19,7 @@
     "package:mac-intel": "npm run build && npm run postbuild && electron-builder --mac --x64",
     "package:mac-arm64": "npm run build && npm run postbuild && electron-builder --mac --arm64",
     "package:mac-universal": "npm run build && npm run postbuild && electron-builder --mac --universal",
+    "package:mac-both": "npm run package:mac && npm run package:mac-arm64",
     "package:win": "npm run build && npm run postbuild && electron-builder --win --x64 --dir",
     "package:win-intel": "npm run build && npm run postbuild && electron-builder --win --x64",
     "package:win-setup": "npm run build && npm run postbuild && npm rebuild sqlite3 --build-from-source --target_platform=win32 --target_arch=x64 --target=24.8.8 --update-binary && electron-builder --win --x64",

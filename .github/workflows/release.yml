@@ -56,8 +56,8 @@ jobs:
           echo "ARM64_DMG_VERSION=${VERSION}-arm64" >> $GITHUB_ENV
         shell: bash
 
-      - name: Build and Package for macOS
-        run: npm run package:mac
+      - name: Build and Package for macOS (both architectures)
+        run: npm run package:mac-both
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
