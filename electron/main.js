@@ -186,9 +186,16 @@ function createWindow() {
     }, AUTH_TIMEOUT_MS); // 5 minutes
   };
 
-  // Reset timer on any user activity
+  // Reset timer on window focus
   mainWindow.on('focus', resetInactivityTimer);
+  
+  // Initial timer setup
   resetInactivityTimer();
+  
+  // Add IPC handler for user activity from the renderer
+  ipcMain.on('user-activity', () => {
+    resetInactivityTimer();
+  });
 
   mainWindow.on('closed', () => {
     writeToLog('info', 'Main window closed');
@@ -952,6 +959,11 @@ function startAuthTimeout(mainWindow) {
     mainWindow.webContents.send('lock-application');
     isDbInitialized = false;
   }, AUTH_TIMEOUT_MS);
+  
+  // Tell the renderer to start tracking user activity
+  if (mainWindow) {
+    mainWindow.webContents.send('start-activity-monitoring');
+  }
 }
 
 // Function to clear the authentication timeout

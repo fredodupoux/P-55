@@ -55,10 +55,14 @@ export interface ElectronDirectAPI {
   // Application functions
   restartApplication: () => Promise<{success: boolean, error?: string}>;
   
+  // User activity tracking functions
+  reportUserActivity: () => void;
+  
   // Event listeners
   onLockApplication: (callback: () => void) => (() => void);
   onUpdateAvailable: (callback: () => void) => (() => void);
   onUpdateReady: (callback: () => void) => (() => void);
+  onStartActivityMonitoring: (callback: () => void) => (() => void);
 }
 
 // Extend the global Window interface

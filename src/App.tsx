@@ -3,6 +3,7 @@ import Alert from '@mui/material/Alert';
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import { useEffect, useState } from 'react';
 import './App.css';
+import ActivityMonitor from './components/ActivityMonitor';
 import DatabaseSetupScreen from './components/DatabaseSetupScreen';
 import LoginScreen from './components/LoginScreen';
 import MainInterface from './components/MainInterface';
@@ -262,6 +263,8 @@ const AppContent = () => {
   return (
     <MuiThemeProvider theme={theme}>
       <CssBaseline />
+      {/* Add ActivityMonitor component here to track user activity across the entire app */}
+      <ActivityMonitor />
       <Box className="App" sx={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
         {isAuthenticated ? (
           <MainInterface onLogout={handleLogout} />

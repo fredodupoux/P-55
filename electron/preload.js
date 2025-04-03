@@ -5,7 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld(
   'api', {
     receive: (channel, func) => {
-      const validChannels = ['lock-application', 'db-response', 'update-available', 'update-ready'];
+      const validChannels = ['lock-application', 'db-response', 'update-available', 'update-ready', 'start-activity-monitoring'];
       if (validChannels.includes(channel)) {
         // Deliberately strip event as it includes `sender` 
         ipcRenderer.on(channel, (event, ...args) => func(...args));
@@ -28,7 +28,8 @@ contextBridge.exposeInMainWorld(
         'setup-database',
         'get-security-questions',
         'verify-security-answers',
-        'reset-password'
+        'reset-password',
+        'user-activity'  // Added new channel for user activity
       ];
       if (validChannels.includes(channel)) {
         ipcRenderer.send(channel, data);
@@ -117,6 +118,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Application restart function
   restartApplication: () => ipcRenderer.invoke('restart-app'),
 
+  // User activity function
+  reportUserActivity: () => ipcRenderer.send('user-activity'),
+  
   // Event listeners
   onLockApplication: (callback) => {
     ipcRenderer.on('lock-application', callback);
@@ -129,5 +133,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onUpdateReady: (callback) => {
     ipcRenderer.on('update-ready', callback);
     return () => ipcRenderer.removeListener('update-ready', callback);
+  },
+  onStartActivityMonitoring: (callback) => {
+    ipcRenderer.on('start-activity-monitoring', callback);
+    return () => ipcRenderer.removeListener('start-activity-monitoring', callback);
   }
 });

@@ -33,6 +33,7 @@ import {
 import Alert from '@mui/material/Alert';
 import React, { useEffect, useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
+import { keyframes } from '@mui/system';
 import AccountService from '../services/AccountService';
 import { Account } from '../types/Account';
 import AccountDetailPanel from './AccountDetailPanel';
@@ -70,6 +71,70 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
   
   // Get theme context
   const { mode, setMode, isDarkMode } = useTheme();
+
+  // Scrollbar visibility state
+  const [isScrolling, setIsScrolling] = useState(false);
+  const scrollTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  
+  // Define fade-out animation
+  const fadeOut = keyframes`
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  `;
+
+  // Custom scrollbar style for account list with animation
+  const scrollbarStyle = {
+    '&::-webkit-scrollbar': {
+      width: '4px',
+      transition: 'all 0.3s ease',
+    },
+    '&::-webkit-scrollbar-track': {
+      background: 'transparent',
+    },
+    '&::-webkit-scrollbar-thumb': {
+      background: isScrolling ? '#888' : 'transparent',
+      borderRadius: '4px',
+      transition: 'background-color 0.3s ease',
+      animation: isScrolling ? 'none' : `${fadeOut} 1s ease-out 2s forwards`,
+    },
+    '&::-webkit-scrollbar-thumb:hover': {
+      background: '#555',
+    },
+    '&': {
+      scrollbarWidth: 'thin',
+      scrollbarColor: isScrolling ? '#888 transparent' : 'transparent transparent',
+      transition: 'scrollbar-color 0.3s ease',
+    },
+  };
+
+  // Handle scroll event to show scrollbar
+  const handleScroll = () => {
+    // Clear any existing timer
+    if (scrollTimerRef.current) {
+      clearTimeout(scrollTimerRef.current);
+    }
+    
+    // Set scrolling state to true
+    setIsScrolling(true);
+    
+    // Set a timer to hide the scrollbar after 2 seconds
+    scrollTimerRef.current = setTimeout(() => {
+      setIsScrolling(false);
+    }, 2000);
+  };
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollTimerRef.current) {
+        clearTimeout(scrollTimerRef.current);
+      }
+    };
+  }, []);
 
   // Check if we're running in Electron
   useEffect(() => {
@@ -487,7 +552,14 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
               
               <Divider sx={{ my: 2 }} />
               
-              <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+              <Box 
+                sx={{ 
+                  flexGrow: 1, 
+                  overflow: 'auto',
+                  ...scrollbarStyle // Apply custom scrollbar style here
+                }}
+                onScroll={handleScroll}
+              >
                 <List>
                   {isLoading ? (
                     <Typography align="center" color="text.secondary">
@@ -531,7 +603,14 @@ const MainInterface: React.FC<MainInterfaceProps> = ({ onLogout }) => {
           {/* Right Panel - Account Details or Add Form */}
           <Grid item xs={12} md={8} sx={{ height: '100%' }}>
             <Paper sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <Box sx={{ flexGrow: 1, overflow: 'auto' }}>
+              <Box 
+                sx={{ 
+                  flexGrow: 1, 
+                  overflow: 'auto',
+                  ...scrollbarStyle // Apply custom scrollbar style here too for consistency
+                }}
+                onScroll={handleScroll}
+              >
                 {isAddingAccount ? (
                   <AccountForm 
                     onSave={handleSaveNewAccount}
