@@ -1,20 +1,25 @@
 import {
-    Cancel,
-    Save,
-    Visibility,
-    VisibilityOff
+  Cancel,
+  Key,
+  Save,
+  Settings,
+  Visibility,
+  VisibilityOff
 } from '@mui/icons-material';
 import {
-    Box,
-    Button,
-    Grid,
-    IconButton,
-    InputAdornment,
-    TextField,
-    Typography
+  Box,
+  Button,
+  Grid,
+  IconButton,
+  InputAdornment,
+  TextField,
+  Tooltip,
+  Typography
 } from '@mui/material';
 import React, { useState } from 'react';
+import PasswordGeneratorService from '../services/PasswordGeneratorService';
 import { Account } from '../types/Account';
+import PasswordGeneratorDialog from './PasswordGeneratorDialog';
 
 interface AccountFormProps {
   account?: Account;
@@ -29,6 +34,7 @@ const AccountForm: React.FC<AccountFormProps> = ({ account, onSave, onCancel }) 
   const [website, setWebsite] = useState(account?.website || 'https://');
   const [notes, setNotes] = useState(account?.notes || '');
   const [showPassword, setShowPassword] = useState(false);
+  const [passwordGeneratorOpen, setPasswordGeneratorOpen] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,6 +46,16 @@ const AccountForm: React.FC<AccountFormProps> = ({ account, onSave, onCancel }) 
       website,
       notes
     });
+  };
+
+  const handlePasswordSelect = (newPassword: string) => {
+    setPassword(newPassword);
+  };
+
+  const generatePasswordDirectly = () => {
+    // Generate a password with default options (symbols always on)
+    const newPassword = PasswordGeneratorService.generatePassword();
+    setPassword(newPassword);
   };
 
   const isFormValid = name.trim() !== '' && username.trim() !== '' && password.trim() !== '';
@@ -77,29 +93,52 @@ const AccountForm: React.FC<AccountFormProps> = ({ account, onSave, onCancel }) 
             />
           </Grid>
 
-          <Grid item xs={12}>
-            <TextField
-              label="Password"
-              fullWidth
-              required
-              variant="outlined"
-              type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                      aria-label={showPassword ? 'hide password' : 'show password'}
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
-            />
+          <Grid item xs={12} sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box sx={{ flexGrow: 1 }}>
+              <TextField
+                label="Password"
+                fullWidth
+                required
+                variant="outlined"
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                        aria-label={showPassword ? 'hide password' : 'show password'}
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }}
+              />
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Button
+                startIcon={<Key />}
+                variant="outlined"
+                size="medium"
+                onClick={generatePasswordDirectly}
+                sx={{ ml: 2, height: '56px' }}
+              >
+                Generate Password
+              </Button>
+              <Tooltip title="Advanced Password Settings">
+                <IconButton
+                  onClick={() => setPasswordGeneratorOpen(true)}
+                  sx={{ ml: 1 }}
+                  color="primary"
+                  aria-label="password settings"
+                >
+                  <Settings />
+                </IconButton>
+              </Tooltip>
+            </Box>
           </Grid>
 
           <Grid item xs={12}>
@@ -149,6 +188,13 @@ const AccountForm: React.FC<AccountFormProps> = ({ account, onSave, onCancel }) 
           </Grid>
         </Grid>
       </form>
+
+      {/* Password Generator Dialog */}
+      <PasswordGeneratorDialog
+        open={passwordGeneratorOpen}
+        onClose={() => setPasswordGeneratorOpen(false)}
+        onSelectPassword={handlePasswordSelect}
+      />
     </Box>
   );
 };
