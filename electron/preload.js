@@ -61,6 +61,7 @@ contextBridge.exposeInMainWorld(
         'enable-totp',
         'disable-totp',
         'verify-totp',
+        'set-master-password-after-totp', // Add the new TOTP fix channel
         // Add new channels for custom backup and restore
         'create-backup-custom-location',
         'restore-database-backup',

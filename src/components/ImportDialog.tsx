@@ -1,23 +1,23 @@
 import {
-    Alert,
-    Box,
-    Button,
-    Checkbox,
-    CircularProgress,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    FormControl,
-    FormControlLabel,
-    FormGroup,
-    FormHelperText,
-    InputLabel,
-    MenuItem,
-    Radio,
-    RadioGroup,
-    Select,
-    Typography
+  Alert,
+  Box,
+  Button,
+  Checkbox,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  FormControlLabel,
+  FormGroup,
+  FormHelperText,
+  InputLabel,
+  MenuItem,
+  Radio,
+  RadioGroup,
+  Select,
+  Typography
 } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import AccountService, { AvailableBrowsers, BrowserImportResult } from '../services/AccountService';
@@ -36,7 +36,8 @@ const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose, onSuccess })
     safari: false,
     edge: false,
     brave: false,
-    opera: false
+    opera: false,
+    csv: false
   });
   
   // Selected browser
@@ -63,12 +64,18 @@ const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose, onSuccess })
         console.log('Available browsers:', browsers);
         setAvailableBrowsers(browsers);
         
-        // Auto-select the first available browser
+        // Auto-select the first available browser or CSV if no browsers available
+        let foundBrowser = false;
         for (const [browser, available] of Object.entries(browsers)) {
           if (available) {
             setSelectedBrowser(browser);
+            foundBrowser = true;
             break;
           }
+        }
+        
+        if (!foundBrowser) {
+          setSelectedBrowser('csv');
         }
       } catch (err) {
         console.error('Error checking available browsers:', err);
@@ -85,7 +92,7 @@ const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose, onSuccess })
   
   const handleImport = async () => {
     if (!selectedBrowser) {
-      setError('Please select a browser to import from');
+      setError('Please select a browser or CSV file to import from');
       return;
     }
     
@@ -122,6 +129,7 @@ const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose, onSuccess })
   
   // Format browser name for display
   const formatBrowserName = (name: string): string => {
+    if (name === 'csv') return 'CSV File';
     return name.charAt(0).toUpperCase() + name.slice(1);
   };
   
@@ -145,78 +153,84 @@ const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose, onSuccess })
           <>
             {availableBrowserCount === 0 ? (
               <Alert severity="info" sx={{ mt: 2 }}>
-                No supported browsers detected on your system. Supported browsers: Chrome, Firefox, Safari, Edge, Brave, and Opera.
+                No supported browsers detected on your system. You can still import from a CSV file.
               </Alert>
             ) : (
-              <>
-                <Typography variant="body1" gutterBottom sx={{ mt: 1 }}>
-                  Import passwords from web browsers installed on your computer.
-                </Typography>
-                
-                <FormControl fullWidth margin="normal">
-                  <InputLabel id="browser-select-label">Select Browser</InputLabel>
-                  <Select
-                    labelId="browser-select-label"
-                    value={selectedBrowser}
-                    label="Select Browser"
-                    onChange={(e) => setSelectedBrowser(e.target.value)}
-                    disabled={isLoading}
-                  >
-                    {Object.entries(availableBrowsers).map(([browser, available]) => (
-                      available && (
-                        <MenuItem key={browser} value={browser}>
-                          {formatBrowserName(browser)}
-                        </MenuItem>
-                      )
-                    ))}
-                  </Select>
-                  <FormHelperText>
-                    Choose the browser to import passwords from
-                  </FormHelperText>
-                </FormControl>
-                
-                <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
-                  Duplicate Handling
-                </Typography>
-                
-                <RadioGroup
-                  value={duplicateHandling}
-                  onChange={(e) => setDuplicateHandling(e.target.value as 'skip' | 'overwrite' | 'keep')}
-                >
-                  <FormControlLabel 
-                    value="skip" 
-                    control={<Radio />} 
-                    label="Skip duplicate entries (recommended)" 
-                    disabled={isLoading}
-                  />
-                  <FormControlLabel 
-                    value="overwrite" 
-                    control={<Radio />} 
-                    label="Overwrite existing entries" 
-                    disabled={isLoading}
-                  />
-                  <FormControlLabel 
-                    value="keep" 
-                    control={<Radio />} 
-                    label="Keep both (create duplicates)" 
-                    disabled={isLoading}
-                  />
-                </RadioGroup>
-                
-                <FormGroup sx={{ mt: 2 }}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={createCategory}
-                        onChange={(e) => setCreateCategory(e.target.checked)}
-                        disabled={isLoading}
-                      />
-                    }
-                    label="Create browser category for imported passwords"
-                  />
-                </FormGroup>
-              </>
+              <Typography variant="body1" gutterBottom sx={{ mt: 1 }}>
+                Import passwords from web browsers installed on your computer or a CSV file.
+              </Typography>
             )}
+            
+            <FormControl fullWidth margin="normal">
+              <InputLabel id="browser-select-label">Select Source</InputLabel>
+              <Select
+                labelId="browser-select-label"
+                value={selectedBrowser}
+                label="Select Source"
+                onChange={(e) => setSelectedBrowser(e.target.value)}
+                disabled={isLoading}
+              >
+                {/* CSV option is always available */}
+                {/* <MenuItem key="csv" value="csv">
+                  CSV File
+                </MenuItem> */}
+                
+                {/* Dynamic browser options */}
+                {Object.entries(availableBrowsers).map(([browser, available]) => (
+                  available && (
+                    <MenuItem key={browser} value={browser}>
+                      {formatBrowserName(browser)}
+                    </MenuItem>
+                  )
+                ))}
+              </Select>
+              <FormHelperText>
+                {selectedBrowser === 'csv' 
+                  ? 'Import passwords from a CSV file (common export format for most password managers)'
+                  : 'Choose the browser to import passwords from'}
+              </FormHelperText>
+            </FormControl>
+            
+            <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
+              Duplicate Handling
+            </Typography>
+            
+            <RadioGroup
+              value={duplicateHandling}
+              onChange={(e) => setDuplicateHandling(e.target.value as 'skip' | 'overwrite' | 'keep')}
+            >
+              <FormControlLabel 
+                value="skip" 
+                control={<Radio />} 
+                label="Skip duplicates (recommended)" 
+                disabled={isLoading}
+              />
+              <FormControlLabel 
+                value="overwrite" 
+                control={<Radio />} 
+                label="Overwrite existing entries" 
+                disabled={isLoading}
+              />
+              <FormControlLabel 
+                value="keep" 
+                control={<Radio />} 
+                label="Keep both (create duplicates)" 
+                disabled={isLoading}
+              />
+            </RadioGroup>
+            
+            <FormGroup sx={{ mt: 2 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={createCategory}
+                    onChange={(e) => setCreateCategory(e.target.checked)}
+                    disabled={isLoading}
+                  />
+                }
+                label={`Create ${selectedBrowser !== 'csv' ? selectedBrowser : 'CSV import'} category for imported passwords`}
+              />
+            </FormGroup>
             
             {error && (
               <Alert severity="error" sx={{ mt: 2 }}>
@@ -234,7 +248,7 @@ const ImportDialog: React.FC<ImportDialogProps> = ({ open, onClose, onSuccess })
           onClick={handleImport} 
           variant="contained" 
           color="primary" 
-          disabled={isLoading || !selectedBrowser || availableBrowserCount === 0}
+          disabled={isLoading || !selectedBrowser}
           startIcon={isLoading ? <CircularProgress size={20} /> : undefined}
         >
           {isLoading ? 'Importing...' : 'Import'}

@@ -17,7 +17,8 @@ async function detectBrowsers() {
     edge: null,
     safari: null,
     brave: null,
-    opera: null
+    opera: null,
+    csv: true // CSV is always available
   };
 
   // Get platform-specific paths
@@ -260,12 +261,16 @@ async function importFromBrowser(browserType, database, dialog, window, options 
       case 'opera':
         result = await importFromOpera(database, dialog, window, options);
         break;
+      case 'csv':
+        result = await importDirectFromCSV(database, dialog, window, options);
+        break;
       default:
         return { success: false, imported: 0, error: `Unsupported browser type: ${browserType}` };
     }
     
     if (result && result.success) {
       importedCount = result.imported;
+      
       // Include all result fields in the return value
       return { 
         success: true, 
@@ -488,6 +493,49 @@ async function importFromOpera(database, dialog, window, options = { handleDupli
     return importFromCSV(result.filePaths[0], database, options);
   } catch (error) {
     console.error('Error importing from Opera:', error);
+    return { success: false, imported: 0, error: error.message };
+  }
+}
+
+/**
+ * Import directly from a generic CSV file
+ * @param {object} database The database instance
+ * @param {object} dialog Electron dialog module
+ * @param {object} window The main window instance
+ * @param {object} options Import options
+ * @returns {Promise<Object>} Import result
+ */
+async function importDirectFromCSV(database, dialog, window, options = { handleDuplicates: 'skip', createCategory: true }) {
+  try {
+    const result = await dialog.showOpenDialog(window, {
+      title: 'Import Passwords from CSV File',
+      message: 'Please select a CSV file containing passwords.\n\n' +
+               'The CSV should have columns for website/URL, username, and password.\n' +
+               'Common column names will be automatically detected.',
+      filters: [
+        { name: 'CSV Files', extensions: ['csv'] },
+        { name: 'All Files', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    });
+    
+    if (result.canceled || !result.filePaths.length) {
+      return { success: false, imported: 0, error: 'Import was canceled' };
+    }
+    
+    // For CSV import, we'll use "csv" as the browserType
+    const importResult = await importFromCSV(result.filePaths[0], database, {
+      ...options,
+      // Use a special category name for direct CSV imports
+      categoryName: 'CSV Import'
+    });
+    
+    return {
+      ...importResult,
+      browserType: 'csv' // Override browser type to 'csv'
+    };
+  } catch (error) {
+    console.error('Error importing from CSV file:', error);
     return { success: false, imported: 0, error: error.message };
   }
 }
@@ -809,12 +857,19 @@ function getColorForBrowser(browserType) {
  * @returns {boolean} True if account is a duplicate
  */
 function checkForDuplicate(account, existingAccounts) {
-  if (!existingAccounts || !existingAccounts.length) return false;
+  // Return false if there are no existing accounts to compare against
+  if (!existingAccounts || !existingAccounts.length) {
+    return false;
+  }
+  
+  // Return false if the account is invalid or has no URL
+  if (!account || !account.url) {
+    return false;
+  }
   
   // Check for duplicates by URL and username
   return existingAccounts.some(existing => {
-    // Both URL and username must match to be considered a duplicate
-    // Use lowercase comparison and strip protocol
+    // Helper function to normalize URLs for comparison
     const normalizeUrl = (url) => {
       if (!url) return '';
       return url.toLowerCase()

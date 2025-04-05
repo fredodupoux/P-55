@@ -26,6 +26,7 @@ export interface AvailableBrowsers {
   edge: boolean;
   brave: boolean;
   opera: boolean;
+  csv: boolean; // CSV option is now required but will be initialized with a value
 }
 
 // Interface for browser import options
@@ -634,7 +635,8 @@ export class AccountService {
         safari: false,
         edge: false,
         brave: false,
-        opera: false
+        opera: false,
+        csv: false
       };
     }
 
@@ -654,7 +656,8 @@ export class AccountService {
         safari: false,
         edge: false,
         brave: false,
-        opera: false
+        opera: false,
+        csv: false
       };
     } catch (error) {
       console.error('Error detecting browsers:', error);
@@ -664,7 +667,8 @@ export class AccountService {
         safari: false,
         edge: false,
         brave: false,
-        opera: false
+        opera: false,
+        csv: false
       };
     }
   }
@@ -672,7 +676,7 @@ export class AccountService {
   // Import passwords from a browser
   static async importFromBrowser(
     browserType: string, 
-    options?: { handleDuplicates?: 'skip' | 'overwrite' | 'keep' }
+    options?: { handleDuplicates?: 'skip' | 'overwrite' | 'keep', createCategory?: boolean }
   ): Promise<BrowserImportResult> {
     if (!window.api) {
       console.error('Electron API not available - cannot import passwords');
@@ -687,7 +691,8 @@ export class AccountService {
       // Pass options to the invoke call, defaulting handleDuplicates to 'skip' if not provided
       const result = await window.api.invoke('import-from-browser', { 
         browserType,
-        handleDuplicates: options?.handleDuplicates || 'skip'
+        handleDuplicates: options?.handleDuplicates || 'skip',
+        createCategory: options?.createCategory !== undefined ? options.createCategory : true
       });
       console.log('Import result:', result);
       
@@ -696,6 +701,7 @@ export class AccountService {
           success: true,
           imported: result.imported,
           duplicates: result.duplicates,
+          updated: result.updated,
           errors: result.errors
         };
       }

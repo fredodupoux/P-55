@@ -1241,59 +1241,34 @@ class Database {
           reject(new Error('Database not initialized'));
           return;
         }
-        
-        // Check if this is a numeric TOTP code
-        const isTOTPCode = /^\d{6,9}$/.test(credential);
+
+        // Check if credential is possibly a TOTP code (typically 6-8 digits)
+        const isTOTPCode = /^\d{6,8}$/.test(credential);
         
         if (isTOTPCode) {
-          // First check if TOTP is enabled
-          const totpSettings = await new Promise((resolveQuery, rejectQuery) => {
-            this.db.get('SELECT * FROM totp_settings WHERE id = 1', (err, result) => {
-              if (err) rejectQuery(err);
-              else resolveQuery(result);
-            });
-          });
-          
-          if (!totpSettings || totpSettings.enabled !== 1) {
-            console.log('TOTP authentication attempted but not enabled');
-            resolve({ success: false, method: 'totp', error: 'TOTP not enabled' });
-            return;
-          }
-          
-          // Verify as TOTP code
           const isValid = await this.verifyTOTPCode(credential);
           
           if (isValid) {
-            // Get the master password from the verification record to set up encryption
-            const row = await new Promise((resolveQuery, rejectQuery) => {
-              this.db.get('SELECT verification_hash, salt FROM master_verification WHERE id = 1', (err, result) => {
-                if (err) rejectQuery(err);
-                else resolveQuery(result);
-              });
+            // Instead of setting an incorrect masterKey, indicate that the proper
+            // key needs to be set with the master password
+            resolve({ 
+              success: true, 
+              method: 'totp', 
+              updateKeyRequired: true 
             });
-            
-            if (!row) {
-              reject(new Error('Master verification record not found'));
-              return;
-            }
-            
-            
-            // When using TOTP, the masterKey should have already been set
-            // by a successful password verification step prior to TOTP check.
-            // We just confirm TOTP validity here.
-            
-            // Authentication successful
-            resolve({ success: true, method: 'totp' });
-            // Important: Don't change the masterKey when TOTP fails
+          } else {
             console.log('TOTP verification failed');
-            resolve({ success: false, method: 'totp', error: 'Invalid TOTP code' });
+            resolve({ 
+              success: false, 
+              method: 'totp', 
+              error: 'Invalid TOTP code' 
+            });
           }
         } else {
-          // Verify as password
+          // Handle password authentication as before
           const isValid = await this.verifyMasterPassword(credential);
           
           if (isValid) {
-            // Set the master key based on the password for encryption/decryption
             this.masterKey = crypto
               .createHash('sha256')
               .update(credential)
@@ -1301,7 +1276,11 @@ class Database {
             
             resolve({ success: true, method: 'password' });
           } else {
-            resolve({ success: false, method: 'password', error: 'Invalid password' });
+            resolve({ 
+              success: false, 
+              method: 'password', 
+              error: 'Invalid password' 
+            });
           }
         }
       } catch (error) {
@@ -1548,6 +1527,38 @@ class Database {
         console.error('Error during post-TOTP initialization:', error);
         reject(error);
       }
+    });
+  }
+
+  // Set master password after TOTP authentication
+  setMasterPasswordAfterTOTP(masterPassword) {
+    return new Promise((resolve, reject) => {
+      if (!this.db) {
+        reject(new Error('Database not initialized'));
+        return;
+      }
+      
+      // Verify the provided master password first
+      this.verifyMasterPassword(masterPassword)
+        .then(isValid => {
+          if (!isValid) {
+            reject(new Error('Invalid master password'));
+            return;
+          }
+          
+          // Compute the proper master key as in password authentication
+          this.masterKey = crypto
+            .createHash('sha256')
+            .update(masterPassword)
+            .digest('hex');
+          
+          console.log('Master password successfully set after TOTP authentication');
+          resolve({ success: true });
+        })
+        .catch(error => {
+          console.error('Error setting master key after TOTP:', error);
+          reject(error);
+        });
     });
   }
 }
